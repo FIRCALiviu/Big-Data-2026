@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 # ── CONFIG ─────────────────────────────────────────
 BASE_URL = "https://www.storia.ro/ro/rezultate/vanzare/apartament/toata-romania"
-MAX_PROPERTIES = 10
+MAX_PROPERTIES = 30
 MAX_SEARCH_PAGES = 30
 OUTPUT_FILE = "storia_apartments.csv"
 # ───────────────────────────────────────────────────
@@ -78,41 +78,45 @@ def get_listing_links(soup, max_links=None):
 
 
 def get_price_from_soup(soup):
-    """Extract price using data-cy or data-sentry-element attributes."""
-    for attr, value in [("data-cy", "adPageHeaderPrice"), ("data-sentry-element", "Price")]:
-        el = soup.find(attrs={attr: value})
-        if el:
-            val = clean(el.get_text())
-            if val and val != "N/A":
-                return val
+    return soup.find('strong', attrs={'aria-label': 'Preț'}).get_text(strip=True)
+
+
+def get_elevator(soup):
+    property_qualities = soup.select("span.css-axw7ok.ei4dv7j1")
+    for property in property_qualities: # check if one is elevator
+        if property.get_text(strip=True).lower() == "lift":
+            return 'da'
+    container_items = soup.select("div[data-sentry-element=ItemGridContainer]")
+    for item in container_items: 
+        label = item.select_one("div[data-sentry-element=Item]")
+        if label.get_text(strip=True).lower() == "lift:" :
+            named_children = [c for c in item.children if c.name]
+            return named_children[1].get_text(strip=True)
+    return 'nu'
+def get_rooms(soup):
+    container_items = soup.select("div[data-sentry-element=ItemGridContainer]")
+    for item in container_items: 
+        label = item.select_one("div[data-sentry-element=Item]")
+        if label.get_text(strip=True).lower() == "numărul de camere:" :
+            named_children = [c for c in item.children if c.name]
+            return named_children[1].get_text(strip=True)
     return "N/A"
-
-
-def is_valid_floor_value(value):
-    """Return True when value looks like a floor and not like a posted date."""
-    if not value or value == "N/A":
-        return False
-
-    v = clean(value).lower()
-
-    if re.search(r"\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b", v):
-        return False
-    if re.search(r"\b\d{4}[./-]\d{1,2}[./-]\d{1,2}\b", v):
-        return False
-
-    bad_tokens = ["azi", "ieri", "publicat", "actualizat", "anun", "postat"]
-    if any(token in v for token in bad_tokens):
-        return False
-
-    allowed_words = ["parter", "demisol", "mansarda", "mezanin", "subsol", "fără informații"]
-    if any(word in v for word in allowed_words):
-        return True
-
-    if re.fullmatch(r"\s*>?\s*\d{1,2}(\s*/\s*\d{1,2})?\s*", v):
-        return True
-
-    return False
-
+def get_construction_material(soup):
+    container_items = soup.select("div[data-sentry-element=ItemGridContainer]")
+    for item in container_items: 
+        label = item.select_one("div[data-sentry-element=Item]")
+        if label.get_text(strip=True).lower() == "material de construcție:" :
+            named_children = [c for c in item.children if c.name]
+            return named_children[1].get_text(strip=True)
+    return "N/A"
+def get_floor_from_soup(soup):
+    container_items = soup.select("div[data-sentry-element=ItemGridContainer]")
+    for item in container_items: 
+        label = item.select_one("div[data-sentry-element=Item]")
+        if label.get_text(strip=True).lower() == "etaj:" :
+            named_children = [c for c in item.children if c.name]
+            return named_children[1].get_text(strip=True)
+    return "N/A"
 
 def parse_city_from_text(text):
     """Extract a city-like token from a location text line."""
@@ -191,71 +195,22 @@ def get_city_from_soup(soup):
 
     return "N/A"
 
-
-def get_feature_from_soup(soup, label, validator=None):
-    """
-    Try multiple strategies to extract a labelled value from a detail page.
-    """
-    # Strategy 1: <dt> / <dd> pattern
-    for dt in soup.find_all("dt"):
-        if clean(dt.get_text()) == label:
-            dd = dt.find_next_sibling("dd")
-            if dd:
-                val = clean(dd.get_text())
-                if val and val != label and (validator is None or validator(val)):
-                    return val
-
-    # Strategy 2: any tag whose text matches the label, value in next sibling
-    for tag in soup.find_all(string=re.compile(rf"^\s*{re.escape(label)}\s*$")):
-        parent = tag.parent
-        sibling = parent.find_next_sibling()
-        if sibling:
-            val = clean(sibling.get_text())
-            if val and val != label and (validator is None or validator(val)):
-                return val
-
-    # Strategy 3: parent of the label tag, look one level up for value sibling
-    for tag in soup.find_all(string=re.compile(rf"^\s*{re.escape(label)}\s*$")):
-        grandparent = tag.parent.parent if tag.parent else None
-        if grandparent:
-            sibling = grandparent.find_next_sibling()
-            if sibling:
-                val = clean(sibling.get_text())
-                if val and val != label and (validator is None or validator(val)):
-                    return val
-
-    # Strategy 4: label anywhere in text, next <p> or <div> sibling
-    for el in soup.find_all(["p", "div", "span", "li"]):
-        if clean(el.get_text()) == label:
-            for sibling in el.find_next_siblings(["p", "div", "span", "li"]):
-                val = clean(sibling.get_text())
-                if val and val != label and len(val) < 100 and (validator is None or validator(val)):
-                    return val
-
-    # Strategy 5: raw regex on page source — last resort
-    try:
-        src = str(soup)
-        pattern = re.escape(label) + r"[\s\S]{0,60}?>([\w\s\.,/]+)<"
-        match = re.search(pattern, src)
-        if match:
-            val = clean(match.group(1))
-            if validator is None or validator(val):
-                return val
-    except Exception:
-        pass
-
+def get_surface(soup):
+    container_items = soup.select("div[data-sentry-element=ItemGridContainer]")
+    for item in container_items: 
+        label = item.select_one("div[data-sentry-element=Item]")
+        if label.get_text(strip=True).lower() == "suprafață utilă:" :
+            named_children = [c for c in item.children if c.name]
+            return named_children[1].get_text(strip=True)
     return "N/A"
-
-
-def get_feature_from_soup_any_label(soup, labels, validator=None):
-    """Try multiple label variants (e.g., with/without trailing colon)."""
-    for label in labels:
-        val = get_feature_from_soup(soup, label, validator=validator)
-        if val != "N/A":
-            return val
+def get_year_from_soup(soup):
+    container_items = soup.select("div[data-sentry-element=ItemGridContainer]")
+    for item in container_items: 
+        label = item.select_one("div[data-sentry-element=Item]")
+        if label.get_text(strip=True).lower() == "anul construcției:" :
+            named_children = [c for c in item.children if c.name]
+            return named_children[1].get_text(strip=True)
     return "N/A"
-
-
 def scrape():
     listings = []
 
@@ -264,7 +219,7 @@ def scrape():
     links = []
     seen_links = set()
 
-    for page in range(1, MAX_SEARCH_PAGES + 1):
+    for page in range(4, MAX_SEARCH_PAGES + 1):
         if len(links) >= MAX_PROPERTIES:
             break
 
@@ -293,14 +248,7 @@ def scrape():
 
     print(f"  Collected {len(links)} unique links total")
 
-    if not links:
-        print("⚠ No links found. Saving debug_page.html ...")
-        soup = fetch_page(BASE_URL)
-        if soup:
-            with open("debug_page.html", "w", encoding="utf-8") as f:
-                f.write(str(soup))
-        return pd.DataFrame()
-
+    
     # ── Step 2: scrape each detail page ───────────────────────────
     for i, link in enumerate(links, 1):
         print(f"\n[{i}/{len(links)}] {link}")
@@ -309,25 +257,15 @@ def scrape():
             if not detail_soup:
                 raise ValueError("Failed to fetch detail page")
 
-            surface = get_feature_from_soup(detail_soup, "Suprafață utilă")
-            rooms   = get_feature_from_soup(detail_soup, "Numărul de camere")
-            floor   = get_feature_from_soup(detail_soup, "Etaj", validator=is_valid_floor_value)
+            surface = get_surface(detail_soup)
+            rooms   = get_rooms(detail_soup)
+            floor   = get_floor_from_soup(detail_soup)
             price   = get_price_from_soup(detail_soup)
             city    = get_city_from_soup(detail_soup)
 
-            year_built = get_feature_from_soup_any_label(detail_soup, ["Anul construcției", "Anul construcției:"])
-            elevator = get_feature_from_soup_any_label(detail_soup, ["Lift", "Lift:"])
-            construction_material = get_feature_from_soup_any_label(
-                detail_soup,
-                ["Material de construcție", "Material de construcție:"],
-            )
-
-            # If all N/A, save debug html for that page
-            if surface == rooms == floor == price == "N/A":
-                fname = f"debug_property_{i}.html"
-                with open(fname, "w", encoding="utf-8") as f:
-                    f.write(str(detail_soup))
-                print(f"  ⚠ All N/A — saved {fname} for inspection")
+            year_built = get_year_from_soup(detail_soup)
+            elevator = get_elevator(detail_soup)
+            construction_material = get_construction_material(detail_soup)
 
             listings.append({
                 "url":        link,
@@ -345,16 +283,10 @@ def scrape():
                 f"  |  year_built={year_built}  |  elevator={elevator}  |  material={construction_material}"
             )
 
+
         except Exception as e:
             print(f"  ⚠ Error scraping {link}: {e}")
-            listings.append({
-                "url": link, "surface_m2": "ERROR",
-                "rooms": "ERROR", "floor": "ERROR", "price": "ERROR", "city": "ERROR",
-                "year_built": "ERROR", "elevator": "ERROR", "construction_material": "ERROR",
-            })
-
-        time.sleep(1.5)  # polite crawl delay
-
+        time.sleep(.5)  # polite crawl delay
     return pd.DataFrame(listings)
 
 
@@ -370,4 +302,3 @@ if __name__ == "__main__":
         print("\n" + "=" * 55)
         print(df.to_string(index=False))
         df.to_csv(OUTPUT_FILE, index=False, encoding="utf-8-sig")
-        print(f"\n✓ Saved {len(df)} rows → {OUTPUT_FILE}")
