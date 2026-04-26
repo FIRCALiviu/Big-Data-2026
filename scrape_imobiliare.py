@@ -135,7 +135,23 @@ def get_floor_from_soup(soup):
             return etaj.get_text(strip = True)
     return "N/A"
 
+def get_bathrooms_from_soup(soup):
+    boxes = soup.select(".swiper-item.flex.items-center.gap-2.rounded-lg.border.border-grey-300.px-3.py-2")
+    for b in boxes:
+        element = b.select_one("span.whitespace-nowrap.text-xs.text-grey-700.md\\:text-sm")
+        if element and element.get_text(strip=True) == "Nr. băi:":
+            bathrooms = b.select_one("span.whitespace-nowrap.text-sm.font-semibold")
+            if bathrooms:
+                return bathrooms.get_text(strip=True)
 
+    rows = soup.select(".flex.w-full.justify-between.gap-x-2.border-b.border-gray-200.py-3.md\\:gap-x-8")
+    for row in rows:
+        key = row.select_one("span.flex.shrink-0.whitespace-nowrap.text-sm.font-normal.text-grey-550.md\\:text-base")
+        if key and key.get_text(strip=True) == "Nr. băi:":
+            value = row.select_one("span.flex.flex-wrap.text-right.text-sm.font-bold.text-grey-550.md\\:justify-end.md\\:text-base")
+            if value:
+                return value.get_text(strip=True)
+    return "N/A"
 
 
 def get_elevator(soup): # we assume that if it isn't found, it doesn't have one
@@ -235,6 +251,7 @@ def scrape():
             surface = get_surface_from_soup(detail_soup)
             rooms   = get_rooms_from_soup(detail_soup)
             floor   = get_floor_from_soup(detail_soup)
+            bathrooms = get_bathrooms_from_soup(detail_soup)
             price   = get_price_from_soup(detail_soup)
             city    = get_city_from_soup(detail_soup)
 
@@ -248,6 +265,7 @@ def scrape():
                 "surface_m2": surface,
                 "rooms":      rooms,
                 "floor":      floor,
+                "bathrooms":  bathrooms,
                 "price":      price,
                 "city":       city,
                 "year_built": year_built,
@@ -259,7 +277,7 @@ def scrape():
 
             })
             print(
-                f"  surface={surface}  |  rooms={rooms}  |  floor={floor}  |  price={price}  |  city={city}"
+                f"  surface={surface}  |  rooms={rooms}  |  floor={floor}  |  bathrooms={bathrooms}  |  price={price}  |  city={city}"
                 f"  |  year_built={year_built}  |  elevator={elevator}  |  material={construction_material}"
                 f"  | number of bathrooms={nr_bathrooms} | latitude = {latitude} | longitude = {longitude}"
             )
