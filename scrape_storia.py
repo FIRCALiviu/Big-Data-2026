@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 # ── CONFIG ─────────────────────────────────────────
 BASE_URL = "https://www.storia.ro/ro/rezultate/vanzare/apartament/toata-romania"
-MAX_PROPERTIES = 30
+MAX_PROPERTIES = 5
 MAX_SEARCH_PAGES = 30
 OUTPUT_FILE = "storia_apartments.csv"
 # ───────────────────────────────────────────────────
@@ -146,6 +146,16 @@ def parse_city_from_text(text):
     # Last-resort fallback: rightmost raw token.
     return parts[-1]
 
+def get_nr_bathrooms(soup:BeautifulSoup):
+        
+    pattern = re.compile(r"[2-9] baii", re.IGNORECASE)
+    element = soup.find(string=pattern)
+    if element:
+        match = pattern.search(element)
+        if match:
+            return int(match.group(0)[0])
+
+    return 1
 
 def extract_address_locality(node):
     """Recursively search JSON-LD for addressLocality."""
@@ -211,6 +221,16 @@ def get_year_from_soup(soup):
             named_children = [c for c in item.children if c.name]
             return named_children[1].get_text(strip=True)
     return "N/A"
+
+def get_latitude_longitude(soup:BeautifulSoup):
+    lats = re.findall(r'"lat(?:itude)?"\s*:\s*([-\d.]+)', str(soup))
+    lngs = re.findall(r'"lo(?:n|ng)(?:itude)?"\s*:\s*([-\d.]+)', str(soup))
+    if lats and lngs:
+        return lats[0],lngs[0]
+    return "N/A","N/A"
+
+
+
 def scrape():
     listings = []
 
@@ -248,7 +268,6 @@ def scrape():
 
     print(f"  Collected {len(links)} unique links total")
 
-    
     # ── Step 2: scrape each detail page ───────────────────────────
     for i, link in enumerate(links, 1):
         print(f"\n[{i}/{len(links)}] {link}")
@@ -266,7 +285,8 @@ def scrape():
             year_built = get_year_from_soup(detail_soup)
             elevator = get_elevator(detail_soup)
             construction_material = get_construction_material(detail_soup)
-
+            nr_bathrooms = get_nr_bathrooms(detail_soup)
+            latitude,longitude = get_latitude_longitude(detail_soup)
             listings.append({
                 "url":        link,
                 "surface_m2": surface,
@@ -277,10 +297,14 @@ def scrape():
                 "year_built": year_built,
                 "elevator": elevator,
                 "construction_material": construction_material,
+                "number_bathrooms" : nr_bathrooms,
+                "latitude": latitude,
+                "longitude" : longitude
             })
             print(
                 f"  surface={surface}  |  rooms={rooms}  |  floor={floor}  |  price={price}  |  city={city}"
-                f"  |  year_built={year_built}  |  elevator={elevator}  |  material={construction_material}"
+                f"  |  year_built={year_built}  |  elevator={elevator}  |  material={construction_material} | "
+                f"bathrooms = {nr_bathrooms} | latitude = {latitude} | longitude = {longitude}"
             )
 
 
