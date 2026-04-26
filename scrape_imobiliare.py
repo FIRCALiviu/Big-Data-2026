@@ -155,8 +155,26 @@ def get_city_from_soup(soup):
         string = (addrs.get_text(strip=True))
         if string:
             return string 
-        
+
+
+
     return "N/A"
+
+def get_nr_bathrooms(soup):
+    labels = soup.select(".flex.w-full.justify-between.gap-x-2.border-b.border-gray-200.py-3.md\\:gap-x-8")
+    for label in labels : 
+        name_label = label.select_one("span.flex.shrink-0.whitespace-nowrap.text-sm.font-normal.text-grey-550.md\\:text-base")
+        if name_label.get_text(strip=True).lower() == "nr. băi:" :
+            value = label.select_one("span.flex.flex-wrap.text-right.text-sm.font-bold.text-grey-550.md\\:justify-end.md\\:text-base") 
+            return value.get_text(strip=True).lower()
+    return "N/A"
+
+def get_latitude_longitude(soup):
+    link = soup.find("a", href=re.compile(r"www\.google\.com/maps\?\w+"))
+    coordinates = link.get('href')[41:]
+    x,y = coordinates.split(",")
+    return float(x),float(y)
+
 import re
 from bs4 import BeautifulSoup
 
@@ -223,7 +241,8 @@ def scrape():
             year_built = get_year_built(detail_soup)
             elevator = get_elevator(detail_soup)
             construction_material = get_construction_material(detail_soup)
-
+            nr_bathrooms = get_nr_bathrooms(detail_soup)
+            latitude,longitude = get_latitude_longitude(detail_soup)
             listings.append({
                 "url":        link,
                 "surface_m2": surface,
@@ -234,10 +253,15 @@ def scrape():
                 "year_built": year_built,
                 "elevator": elevator,
                 "construction_material": construction_material,
+                "number_bathrooms":nr_bathrooms,
+                "latitude" : latitude,
+                "longitude" : longitude
+
             })
             print(
                 f"  surface={surface}  |  rooms={rooms}  |  floor={floor}  |  price={price}  |  city={city}"
                 f"  |  year_built={year_built}  |  elevator={elevator}  |  material={construction_material}"
+                f"  | number of bathrooms={nr_bathrooms} | latitude = {latitude} | longitude = {longitude}"
             )
 
         except Exception as e:
