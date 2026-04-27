@@ -228,7 +228,7 @@ def get_latitude_longitude(soup:BeautifulSoup):
     if lats and lngs:
         return lats[0],lngs[0]
     return "N/A","N/A"
-
+from stations import distance_to_metro,distance_to_stb
 
 
 def scrape():
@@ -287,6 +287,8 @@ def scrape():
             construction_material = get_construction_material(detail_soup)
             nr_bathrooms = get_nr_bathrooms(detail_soup)
             latitude,longitude = get_latitude_longitude(detail_soup)
+            metrou = distance_to_metro(latitude,longitude)
+            stb =  distance_to_stb(latitude,longitude)
             listings.append({
                 "url":        link,
                 "surface_m2": surface,
@@ -299,12 +301,15 @@ def scrape():
                 "construction_material": construction_material,
                 "number_bathrooms" : nr_bathrooms,
                 "latitude": latitude,
-                "longitude" : longitude
+                "longitude" : longitude,
+                "metro_proximity" : metrou,
+                "stb_proximity": stb
             })
             print(
                 f"  surface={surface}  |  rooms={rooms}  |  floor={floor}  |  price={price}  |  city={city}"
                 f"  |  year_built={year_built}  |  elevator={elevator}  |  material={construction_material} | "
                 f"bathrooms = {nr_bathrooms} | latitude = {latitude} | longitude = {longitude}"
+                f"metrou_proximity = {metrou} | stb_proximity = {stb}"
             )
 
 
