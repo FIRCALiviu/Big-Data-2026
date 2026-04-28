@@ -2,29 +2,28 @@ import pandas as pd
 import time
 import re
 import json
-import requests
+from curl_cffi import requests
 from bs4 import BeautifulSoup
 
 # ── CONFIG ─────────────────────────────────────────
-BASE_URL = "https://www.storia.ro/ro/rezultate/vanzare/apartament/toata-romania"
-MAX_PROPERTIES = 5
-MAX_SEARCH_PAGES = 30
+BASE_URL = "https://www.storia.ro/ro/rezultate/vanzare/apartament/bucuresti"
+MAX_PROPERTIES = 10_000
+MAX_SEARCH_PAGES = 3000
 OUTPUT_FILE = "storia_apartments.csv"
+DEBUG = False
+
 # ───────────────────────────────────────────────────
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/122.0.0.0 Safari/537.36"
-    ),
-    "Accept-Language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Referer": "https://www.storia.ro/",
-}
+
 
 session = requests.Session()
-session.headers.update(HEADERS)
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept-Language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Referer": "https://www.storia.ro/",
+    "Connection": "keep-alive",
+}
 
 
 def clean(text):
@@ -32,14 +31,15 @@ def clean(text):
 
 
 def fetch_page(url, retries=3):
-    """Fetch a URL with retries, returning a BeautifulSoup object or None."""
     for attempt in range(1, retries + 1):
         try:
-            resp = session.get(url, timeout=15)
+           
+            resp = session.get(url, headers=HEADERS, timeout=30, impersonate="chrome120")
             resp.raise_for_status()
             return BeautifulSoup(resp.text, "html.parser")
-        except requests.RequestException as e:
+        except Exception as e:
             print(f"  ⚠ Attempt {attempt}/{retries} failed for {url}: {e}")
+            
             time.sleep(2 * attempt)
     return None
 
@@ -78,7 +78,7 @@ def get_listing_links(soup, max_links=None):
 
 
 def get_price_from_soup(soup):
-    return soup.find('strong', attrs={'aria-label': 'Preț'}).get_text(strip=True)
+    return soup.find('strong', attrs={'aria-label': 'Preț'}).get_text(strip=True).replace('\xa0',' ')
 
 
 def get_elevator(soup):
@@ -211,7 +211,7 @@ def get_surface(soup):
         label = item.select_one("div[data-sentry-element=Item]")
         if label.get_text(strip=True).lower() == "suprafață utilă:" :
             named_children = [c for c in item.children if c.name]
-            return named_children[1].get_text(strip=True)
+            return named_children[2].get_text(strip=True)
     return "N/A"
 def get_year_from_soup(soup):
     container_items = soup.select("div[data-sentry-element=ItemGridContainer]")
@@ -231,6 +231,7 @@ def get_latitude_longitude(soup:BeautifulSoup):
 from stations import distance_to_metro,distance_to_stb
 
 
+
 def scrape():
     listings = []
 
@@ -239,7 +240,7 @@ def scrape():
     links = []
     seen_links = set()
 
-    for page in range(4, MAX_SEARCH_PAGES + 1):
+    for page in range(1, MAX_SEARCH_PAGES + 1):
         if len(links) >= MAX_PROPERTIES:
             break
 
@@ -305,6 +306,7 @@ def scrape():
                 "metro_proximity" : metrou,
                 "stb_proximity": stb
             })
+            
             print(
                 f"  surface={surface}  |  rooms={rooms}  |  floor={floor}  |  price={price}  |  city={city}"
                 f"  |  year_built={year_built}  |  elevator={elevator}  |  material={construction_material} | "
@@ -315,7 +317,9 @@ def scrape():
 
         except Exception as e:
             print(f"  ⚠ Error scraping {link}: {e}")
-        time.sleep(.5)  # polite crawl delay
+        time.sleep(.3)  # polite crawl delay
+
+
     return pd.DataFrame(listings)
 
 

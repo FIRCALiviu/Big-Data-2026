@@ -2,30 +2,28 @@ import pandas as pd
 import time
 import re
 import json
-import requests
+from curl_cffi import requests
 from bs4 import BeautifulSoup
 
 # ── CONFIG ─────────────────────────────────────────
-BASE_URL = "https://www.imobiliare.ro/vanzare-apartamente"
+BASE_URL = "https://www.imobiliare.ro/vanzare-apartamente/bucuresti"
 
-MAX_PROPERTIES = 10
-MAX_SEARCH_PAGES = 30
-OUTPUT_FILE = "storia_apartments.csv"
+MAX_PROPERTIES = 10_000
+MAX_SEARCH_PAGES = 3000
+OUTPUT_FILE = "imobiliare_apartments.csv"
+DEBUG = False
 # ───────────────────────────────────────────────────
 
 HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/122.0.0.0 Safari/537.36"
-    ),
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Accept-Language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Referer": "https://www.storia.ro/",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Referer": "https://www.imobiliare.ro/", 
+    "Connection": "keep-alive",
 }
 
 session = requests.Session()
-session.headers.update(HEADERS)
+
 
 
 def clean(text):
@@ -33,14 +31,15 @@ def clean(text):
 
 
 def fetch_page(url, retries=3):
-    """Fetch a URL with retries, returning a BeautifulSoup object or None."""
     for attempt in range(1, retries + 1):
         try:
-            resp = session.get(url, timeout=15)
+
+            resp = session.get(url, headers=HEADERS, timeout=30, impersonate="chrome120")
             resp.raise_for_status()
             return BeautifulSoup(resp.text, "html.parser")
-        except requests.RequestException as e:
+        except Exception as e:
             print(f"  ⚠ Attempt {attempt}/{retries} failed for {url}: {e}")
+
             time.sleep(2 * attempt)
     return None
 
@@ -188,6 +187,7 @@ from stations import distance_to_metro, distance_to_stb
 
 
 
+
 def scrape():
     listings = []
 
@@ -273,7 +273,7 @@ def scrape():
         except Exception as e:
             print(f"  ⚠ Error scraping {link}: {e}")
 
-        time.sleep(.5)  # polite crawl delay
+        time.sleep(.2)  # polite crawl delay
 
     return pd.DataFrame(listings)
 
