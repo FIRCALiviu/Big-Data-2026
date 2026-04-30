@@ -30,7 +30,7 @@ def fetch_page(url, retries=3):
                 url,
                 headers=HEADERS,
                 timeout=30,
-                impersonate="chrome120"
+                impersonate="chrome120",
             )
             resp.raise_for_status()
             return BeautifulSoup(resp.text, "html.parser")
@@ -53,7 +53,9 @@ def get_info_box_value(soup, label_text):
     )
 
     for box in boxes:
-        label = box.select_one("span.whitespace-nowrap.text-xs.text-grey-700.md\\:text-sm")
+        label = box.select_one(
+            "span.whitespace-nowrap.text-xs.text-grey-700.md\\:text-sm"
+        )
 
         if label and label.get_text(strip=True) == label_text:
             value = box.select_one("span.whitespace-nowrap.text-sm.font-semibold")
@@ -164,10 +166,27 @@ def get_latitude_longitude(soup):
 def scrape_details():
     links_df = pd.read_csv(INPUT_FILE)
 
+    # Load URLs already saved in the output file
+    if os.path.isfile(OUTPUT_FILE):
+        try:
+            existing_df = pd.read_csv(OUTPUT_FILE, on_bad_lines="skip")
+            processed_urls = set(existing_df["url"].dropna().astype(str))
+            print(f"Loaded {len(processed_urls)} already processed URLs")
+        except Exception as e:
+            print(f"⚠ Could not read existing output file: {e}")
+            processed_urls = set()
+    else:
+        processed_urls = set()
+
     file_exists = os.path.isfile(OUTPUT_FILE)
 
     for i, row in links_df.iterrows():
-        link = row["url"]
+        link = str(row["url"]).strip()
+
+        if link in processed_urls:
+            print(f"⏭ Skipping already scraped: {link}")
+            continue
+
         print(f"\n[{i + 1}/{len(links_df)}] {link}")
 
         try:
@@ -215,16 +234,16 @@ def scrape_details():
 
             df_row = pd.DataFrame([row_data])
 
-            # Append to CSV
             df_row.to_csv(
                 OUTPUT_FILE,
                 mode="a",
                 header=not file_exists,
                 index=False,
-                encoding="utf-8-sig"
+                encoding="utf-8-sig",
             )
 
-            file_exists = True  # after first write
+            file_exists = True
+            processed_urls.add(link)
 
             print(
                 f"surface={surface} | rooms={rooms} | floor={floor} | "
@@ -237,6 +256,7 @@ def scrape_details():
         time.sleep(0.2)
 
     print(f"\nData continuously saved to {OUTPUT_FILE}")
+
 
 if __name__ == "__main__":
     scrape_details()
