@@ -3,6 +3,7 @@ import re
 import pandas as pd
 from curl_cffi import requests
 from bs4 import BeautifulSoup
+import os
 
 from stations import distance_to_metro, distance_to_stb
 
@@ -163,7 +164,7 @@ def get_latitude_longitude(soup):
 def scrape_details():
     links_df = pd.read_csv(INPUT_FILE)
 
-    listings = []
+    file_exists = os.path.isfile(OUTPUT_FILE)
 
     for i, row in links_df.iterrows():
         link = row["url"]
@@ -195,7 +196,7 @@ def scrape_details():
                 metro = "N/A"
                 stb = "N/A"
 
-            listings.append({
+            row_data = {
                 "url": link,
                 "surface_m2": surface,
                 "rooms": rooms,
@@ -210,7 +211,20 @@ def scrape_details():
                 "longitude": longitude,
                 "metro_proximity": metro,
                 "stb_proximity": stb,
-            })
+            }
+
+            df_row = pd.DataFrame([row_data])
+
+            # Append to CSV
+            df_row.to_csv(
+                OUTPUT_FILE,
+                mode="a",
+                header=not file_exists,
+                index=False,
+                encoding="utf-8-sig"
+            )
+
+            file_exists = True  # after first write
 
             print(
                 f"surface={surface} | rooms={rooms} | floor={floor} | "
@@ -222,14 +236,7 @@ def scrape_details():
 
         time.sleep(0.2)
 
-    df = pd.DataFrame(listings)
-
-    if df.empty:
-        print("No data collected.")
-    else:
-        df.to_csv(OUTPUT_FILE, index=False, encoding="utf-8-sig")
-        print(f"\nSaved apartment details to {OUTPUT_FILE}")
-
+    print(f"\nData continuously saved to {OUTPUT_FILE}")
 
 if __name__ == "__main__":
     scrape_details()
