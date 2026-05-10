@@ -23,6 +23,19 @@ PLOT_DIR = BASE_DIR
 USE_PCA = True
 PCA_COMPONENTS = 0.95
 
+HYPERPARAM_SEARCH = True
+HYPERPARAM_GRID = [
+    {"n_estimators": 200, "learning_rate": 0.1, "max_depth": 6},
+    {"n_estimators": 300, "learning_rate": 0.1, "max_depth": 4},
+    {"n_estimators": 400, "learning_rate": 0.05, "max_depth": 6},
+    {"n_estimators": 150, "learning_rate": 0.1, "max_depth": 8},
+    {"n_estimators": 500, "learning_rate": 0.05, "max_depth": 4},
+    {"n_estimators": 800, "learning_rate": 0.03, "max_depth": 6},
+    {"n_estimators": 300, "learning_rate": 0.2, "max_depth": 3},
+    {"n_estimators": 200, "learning_rate": 0.05, "max_depth": 8},
+    {"n_estimators": 600, "learning_rate": 0.03, "max_depth": 4},
+]
+
 
 
 
@@ -117,8 +130,11 @@ def build_preprocessor(numeric_features, categorical_features):
     return preprocess
 
 
-def build_model_pipeline(preprocessor, use_pca=False, pca_components=0.95):
-    model = XGBRegressor(n_estimators=200, learning_rate=0.1, max_depth=6, random_state=42, n_jobs=-1)
+def build_model_pipeline(preprocessor, use_pca=False, pca_components=0.95, model_params=None):
+    params = {"n_estimators": 200, "learning_rate": 0.1, "max_depth": 6, "random_state": 42, "n_jobs": -1}
+    if model_params:
+        params.update(model_params)
+    model = XGBRegressor(**params)
 
     steps = [("preprocess", preprocessor)]
     if use_pca:
@@ -192,7 +208,7 @@ def save_feature_importances(pipeline, use_pca=False, suffix=""):
     return f"feature_importances{suffix}.png"
 
 
-def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv, suffix="", save_model_path=None, use_pca=False):
+def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv, suffix="", save_model_path=None, use_pca=False, save_artifacts=True):
     print(f"\n{name}")
     print("Running cross-validation (MAE)...")
     cv_mae = -cross_val_score(pipeline, X, y, scoring="neg_mean_absolute_error", cv=cv, n_jobs=-1)
@@ -212,12 +228,13 @@ def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv
     print("Sample predictions vs actual:")
     print(sample_df.to_string(index=False))
 
-    plots = save_plots(y_test, preds, suffix=suffix)
-    fi_plot = save_feature_importances(pipeline, use_pca=use_pca, suffix=suffix)
+    if save_artifacts:
+        plots = save_plots(y_test, preds, suffix=suffix)
+        fi_plot = save_feature_importances(pipeline, use_pca=use_pca, suffix=suffix)
 
-    if save_model_path:
-        joblib.dump(pipeline, save_model_path)
-        print(f"Saved trained pipeline to: {save_model_path}")
+        if save_model_path:
+            joblib.dump(pipeline, save_model_path)
+            print(f"Saved trained pipeline to: {save_model_path}")
 
     return {"mae": mae, "rmse": rmse, "r2": r2, "rmsle": rmsle}
 
@@ -258,6 +275,41 @@ def main():
 
     if not USE_PCA:
         print("Enable PCA to run the model")
+        return
+
+    if HYPERPARAM_SEARCH:
+        results = []
+        total = len(HYPERPARAM_GRID)
+        for idx, params in enumerate(HYPERPARAM_GRID, start=1):
+            pca_pipeline = build_model_pipeline(
+                preprocessor,
+                use_pca=True,
+                pca_components=PCA_COMPONENTS,
+                model_params=params,
+            )
+            metrics = evaluate_pipeline(
+                f"PCA search {idx}/{total} params={params}",
+                pca_pipeline,
+                X,
+                y,
+                X_train,
+                X_test,
+                y_train,
+                y_test,
+                cv,
+                suffix=f"pca_search_{idx}",
+                save_model_path=None,
+                use_pca=True,
+                save_artifacts=False,
+            )
+            results.append({"params": params, **metrics})
+
+        results = sorted(results, key=lambda r: r["mae"])
+        print("\nSearch summary (sorted by MAE):")
+        for r in results:
+            print(
+                f"MAE={r['mae']:.2f}, RMSE={r['rmse']:.2f}, R2={r['r2']:.3f}, RMSLE={r['rmsle']:.3f} | params={r['params']}"
+            )
         return
 
     pca_pipeline = build_model_pipeline(preprocessor, use_pca=True, pca_components=PCA_COMPONENTS)
