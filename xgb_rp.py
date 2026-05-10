@@ -25,6 +25,19 @@ USE_RP = True
 RP_COMPONENTS = 50
 RP_RANDOM_STATE = 42
 
+HYPERPARAM_SEARCH = True
+HYPERPARAM_GRID = [
+	{"n_estimators": 200, "learning_rate": 0.1, "max_depth": 6},
+	{"n_estimators": 300, "learning_rate": 0.1, "max_depth": 4},
+	{"n_estimators": 400, "learning_rate": 0.05, "max_depth": 6},
+	{"n_estimators": 150, "learning_rate": 0.1, "max_depth": 8},
+	{"n_estimators": 500, "learning_rate": 0.05, "max_depth": 4},
+	{"n_estimators": 800, "learning_rate": 0.03, "max_depth": 6},
+	{"n_estimators": 300, "learning_rate": 0.2, "max_depth": 3},
+	{"n_estimators": 200, "learning_rate": 0.05, "max_depth": 8},
+	{"n_estimators": 600, "learning_rate": 0.03, "max_depth": 4},
+]
+
 
 def extract_first_number(value):
 	if pd.isna(value):
@@ -123,8 +136,11 @@ def build_preprocessor(numeric_features, categorical_features):
 	return preprocess
 
 
-def build_model_pipeline(preprocessor, use_rp=False):
-	model = XGBRegressor(n_estimators=200, learning_rate=0.1, max_depth=6, random_state=42, n_jobs=-1)
+def build_model_pipeline(preprocessor, use_rp=False, model_params=None):
+	params = {"n_estimators": 200, "learning_rate": 0.1, "max_depth": 6, "random_state": 42, "n_jobs": -1}
+	if model_params:
+		params.update(model_params)
+	model = XGBRegressor(**params)
 
 	steps = [("preprocess", preprocessor)]
 	if use_rp:
@@ -199,7 +215,7 @@ def save_feature_importances(pipeline, use_rp=False, suffix=""):
 	return f"feature_importances{suffix}.png"
 
 
-def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv, suffix="", save_model_path=None, use_rp=False):
+def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv, suffix="", save_model_path=None, use_rp=False, save_artifacts=True):
 	print(f"\n{name}")
 	print("Running cross-validation (MAE)...")
 	cv_mae = -cross_val_score(pipeline, X, y, scoring="neg_mean_absolute_error", cv=cv, n_jobs=-1)
@@ -219,12 +235,13 @@ def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv
 	print("Sample predictions vs actual:")
 	print(sample_df.to_string(index=False))
 
-	save_plots(y_test, preds, suffix=suffix)
-	save_feature_importances(pipeline, use_rp=use_rp, suffix=suffix)
+	if save_artifacts:
+		save_plots(y_test, preds, suffix=suffix)
+		save_feature_importances(pipeline, use_rp=use_rp, suffix=suffix)
 
-	if save_model_path:
-		joblib.dump(pipeline, save_model_path)
-		print(f"Saved trained pipeline to: {save_model_path}")
+		if save_model_path:
+			joblib.dump(pipeline, save_model_path)
+			print(f"Saved trained pipeline to: {save_model_path}")
 
 	return {"mae": mae, "rmse": rmse, "r2": r2, "rmsle": rmsle}
 
@@ -270,6 +287,36 @@ def main():
 
 	if not USE_RP:
 		print("Enable RP to run the model")
+		return
+
+	if HYPERPARAM_SEARCH:
+		results = []
+		total = len(HYPERPARAM_GRID)
+		for idx, params in enumerate(HYPERPARAM_GRID, start=1):
+			rp_pipeline = build_model_pipeline(preprocessor, use_rp=True, model_params=params)
+			metrics = evaluate_pipeline(
+				f"RP search {idx}/{total} params={params}",
+				rp_pipeline,
+				X,
+				y,
+				X_train,
+				X_test,
+				y_train,
+				y_test,
+				cv,
+				suffix=f"rp_search_{idx}",
+				save_model_path=None,
+				use_rp=True,
+				save_artifacts=False,
+			)
+			results.append({"params": params, **metrics})
+
+		results = sorted(results, key=lambda r: r["mae"])
+		print("\nSearch summary (sorted by MAE):")
+		for r in results:
+			print(
+				f"MAE={r['mae']:.2f}, RMSE={r['rmse']:.2f}, R2={r['r2']:.3f}, RMSLE={r['rmsle']:.3f} | params={r['params']}"
+			)
 		return
 
 	rp_pipeline = build_model_pipeline(preprocessor, use_rp=True)
