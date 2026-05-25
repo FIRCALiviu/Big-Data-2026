@@ -37,7 +37,7 @@ def apply_umap():
         ])
 
     X_processed = preprocessor.fit_transform(X)
-    reducer = umap.UMAP(n_components=5, random_state=42)
+    reducer = umap.UMAP(n_components=6, random_state=42)
     X_umap = reducer.fit_transform(X_processed)
 
     umap_cols = [f'UMAP{i+1}' for i in range(X_umap.shape[1])]
