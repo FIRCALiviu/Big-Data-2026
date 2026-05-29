@@ -3,7 +3,7 @@
 % Language setting
 % Replace `english' with e.g. `spanish' to change the document language
 \usepackage[english]{babel}
-
+\usepackage{eurosym}
 % Set page size and margins
 % Replace `letterpaper' with `a4paper' for UK/EU standard size
 \usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
@@ -23,7 +23,12 @@
 
 \section{Introduction}
 The Romanian housing market has experienced dramatic trends in the last 5 years, with residential prices in major urban hubs like Bucharest and Cluj-Napoca surging by over 40\%. In this vibrant and essential market, it is important that we establish AI models that are able to reliably predict the price of real estate, in order to decide if the price of certain offers is too high or too low.
-\textbf{TODO:CONTINUE}
+Unfortunately, we weren't able to find a state of the art model for the Bucharest housing market, since financial data and algorithms tend to be proprietary, however our solution found that \textbf{TODO: eroare}, besides some other interesting patterns found in the data.
+
+\section{Dataset description}
+
+
+
 \section{Dataset production}
 We have decided to limit our crawling to flats, not houses, that are in Bucharest. This approach allows us to have more homogenous data, facilitating the tasks of our algorithms.
  We set a target of 10000 different samples from 2 websites : \emph{imobiliare.ro} and \emph{storia.ro}. This equal split is able to correct biases related to the platform, but also make sure that we have enough data for the Machine Learning section. In order to obtain all the relevant data from each website, we first notice that all the listings are make available using pagination (e.g. on page 1 there are 10 listing , on page 2 there are 10 listing and so forth). After we gather 10 000 links/listings, each property is analysed using an automated script. On \emph{storia.ro}, there are no rate limits for crawling, so everything could be done in one session, however \emph{imobiliare.ro} imposes limits on crawling, resulting in a process conducted in multiple sessions.
@@ -62,6 +67,105 @@ Each attribute was collected using the specific \texttt{HTML} tag, and also the 
     \label{fig1}
 \end{figure}
 
-\section{Dataset description}
+\subsection{Data Clean-up}
 
+As there are no limits on the price, surface, and number of rooms, we want to limit the data to more normal listings that are also serious in nature. A series of constraints was established to filter out the data:
+\begin{itemize}
+    \item $1100 \text{ \euro} /\text{ m}^2< \frac{\texttt{price}}{\texttt{surface}} < 6000 \text{ \euro} /\text{ m}^2$
+    \item $ 25 \text{ m}^2<\texttt{surface} < 200 \text{ m}^2$
+    \item $ \texttt{stb\_proximity} < 2 \text{km}$
+\end{itemize}
+
+By enforcing these constraints, we ensure that each listing in our dataset isn't too outlandish and normalises our data. For example, if the price per square meter would be above 7000 \euro, an apartment of $130 \text{m}^2$ would cost 910000 \euro which is nearly a million. Clearly, for the Bucharest real estate market, this is an flippant. 
+
+Another problem we had was treating \texttt{N/A}s this was established in the following manner : 
+
+\textbf{TODO:how did we handle Na}
+\textbf{TODO: what were the final columns}
+
+After performing this clean-up, we were left with \textbf{1622} listings
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{output.png}
+    \caption{Histogram for the discrete column of our dataset}
+    \label{fig:2}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{image.png}
+    \caption{Histogram of the continuous column of our dataset}
+    \label{fig:3}
+\end{figure}
+\section{EDA}
+
+We first check the histograms of the data. In Figure~\ref{fig:2}, we can see that the \texttt{floor} column has a left shift distribution, and that \texttt{elevator} is roughly equally distributed.
+In Figure~\ref{fig:3}, we can see that \texttt{surface\_m2}, \texttt{price}, \texttt{metro\_proximity}, also have a left shift distribution. Another interesting obvervation is that the housing was built in 2 waves : the first ranging from 1960-1990, and the second ranging from 2016-2026.
+
+In Figure~\ref{fig:4} the scatter matrix reveals 3 key observations:
+\begin{itemize}
+    \item The surface in particular appears to be the only reliable predictor for the price
+    \item We can also observe that a very high price implies that the unit has been built recently
+    \item We can also observe that a very high price implies that the unit has been built near a metro station
+\end{itemize}
+
+The correlation matrix represents another critical technique in this analysis. Following the correlation matrix we can deduce : 
+\newline
+\textbf{There exists a 76\% correlation between the price of an apartment and its surface}. This confirm the mantra of comparing the price of housing units to how much space they offer. Because of this, in Figure~\ref{fig:6}, we compare the price of each neighbourhood using price per square meter in order to have a more balanced outlook of each price.\newline
+\textbf{There exists a 56\% correlation between the price of an apartment and the number of rooms it has}. This is in part because the more rooms a unit has, the more space it has to offer. Also more amenities are available if the number of rooms increases.\newline 
+\textbf{There exists a 32\% correlation between the proximity to the subway system and the year it was built}. This highlights that real estate developers love to build next to existing transport infrastructure.
+\newline 
+
+
+Another interesting trend in our data is how the price per square meter is influenced by the location. As shown in Figure~\ref{fig:6}, there are 3 distinct patterns:
+\begin{itemize}
+    \item Aviatorilor is the only very luxurious neighbourhood
+    \item The city centre also has moderately expensive housing. It could be considered upper-class
+    \item Outside the broader city centre, the shell of the city is the only area with more affordable housing
+\end{itemize}
+
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\linewidth]{output2.png}
+    \caption{Scatter matrix the dataset. On the main diagonal is present the histogram of the column }
+    \label{fig:4}
+\end{figure}
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\linewidth]{output3.png}
+    \caption{Correlation matrix the dataset. }
+    \label{fig:5}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{City plot.png}
+    \caption{Plot of the prices per square meter in Bucharest }
+    \label{fig:6}
+\end{figure}
+
+
+The log-transform is a common trick to try and change a distribution to be normal. It is defined by 
+\begin{equation}
+    x^{\prime} = \ln(1+x)
+\end{equation}
+
+After applying this transform to multiple columns, we deduce as shown in Figure~\ref{fig:7} that we can obtain a normal-looking distribution by applying a log transform to the \texttt{price}, \texttt{surface\_m2} and \texttt{metro\_proximity} columns. Since a lot of machine learning algorithms prefer to be working with a bell curve, we will apply this transform to the dataset during training.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{transform.png}
+    \caption{Applying a log transform to some columns yields a bell curve}
+    \label{fig:7}
+\end{figure}
+
+\section{Implementation details}
+\textbf{TODO: ce library suntt folosite pandas samd, timpul de rulare, hardware folosit}
+
+\section{}
 \end{document}
