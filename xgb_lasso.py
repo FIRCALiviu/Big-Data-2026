@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.compose import ColumnTransformer
+from sklearn.compose import ColumnTransformer, TransformedTargetRegressor
 from sklearn.decomposition import TruncatedSVD
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
@@ -17,13 +17,12 @@ import joblib
 from xgboost import XGBRegressor
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_FILE = BASE_DIR / "imobiliare_apartments.csv"
-MODEL_SVD_FILE = BASE_DIR / "xgb_pipeline_svd.joblib"
+DATA_FILE = BASE_DIR / "Datasets" / "lasso_dataset.csv"
+MODEL_LASSO_FILE = BASE_DIR / "xgb_pipeline_lasso.joblib"
 PLOT_DIR = BASE_DIR
 
-USE_SVD = True
-SVD_COMPONENTS = 50
-SVD_RANDOM_STATE = 42
+USE_LASSO = True
+USE_PREPROCESSED_LASSO = True
 
 HYPERPARAM_SEARCH = True
 HYPERPARAM_GRID = [
@@ -136,15 +135,19 @@ def build_preprocessor(numeric_features, categorical_features):
 	return preprocess
 
 
-def build_model_pipeline(preprocessor, use_svd=False, model_params=None):
+def build_model_pipeline(preprocessor, use_lasso=False, model_params=None):
 	params = {"n_estimators": 200, "learning_rate": 0.1, "max_depth": 6, "random_state": 42, "n_jobs": -1}
 	if model_params:
 		params.update(model_params)
-	model = XGBRegressor(**params)
+	model = TransformedTargetRegressor(
+		regressor=XGBRegressor(**params),
+		func=np.log1p,
+		inverse_func=np.expm1,
+	)
 
-	steps = [("preprocess", preprocessor)]
-	if use_svd:
-		steps.append(("svd", TruncatedSVD(n_components=SVD_COMPONENTS, random_state=SVD_RANDOM_STATE)))
+	steps = []
+	if preprocessor is not None:
+		steps.append(("preprocess", preprocessor))
 	steps.append(("model", model))
 
 	return Pipeline(steps=steps)
@@ -190,13 +193,14 @@ def save_plots(y_true, y_pred, suffix=""):
 	]
 
 
-def save_feature_importances(pipeline, use_svd=False, suffix=""):
+def save_feature_importances(pipeline, use_lasso=False, suffix=""):
 	try:
-		if use_svd:
-			n_components = pipeline.named_steps["svd"].n_components
-			feature_names = [f"svd_{i + 1}" for i in range(int(n_components))]
-		else:
+		if use_lasso:
+			feature_names = pipeline.named_steps["model"].feature_names_in_.tolist()
+		elif "preprocess" in pipeline.named_steps:
 			feature_names = pipeline.named_steps["preprocess"].get_feature_names_out()
+		else:
+			raise AttributeError("No feature names available")
 	except Exception:
 		feature_names = [f"f_{i}" for i in range(pipeline.named_steps["model"].feature_importances_.shape[0])]
 
@@ -206,7 +210,7 @@ def save_feature_importances(pipeline, use_svd=False, suffix=""):
 
 	plt.figure(figsize=(8, 6))
 	sns.barplot(data=fi, x="importance", y="feature")
-	plt.title("Top Feature Importances" if not use_svd else "Top SVD Component Importances")
+	plt.title("Top Feature Importances" if not use_lasso else "Top Lasso-Selected Feature Importances")
 	plt.tight_layout()
 	suffix = f"_{suffix}" if suffix else ""
 	plt.savefig(PLOT_DIR / f"feature_importances{suffix}.png", dpi=150)
@@ -215,10 +219,10 @@ def save_feature_importances(pipeline, use_svd=False, suffix=""):
 	return f"feature_importances{suffix}.png"
 
 
-def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv, suffix="", save_model_path=None, use_svd=False, save_artifacts=True):
+def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv, suffix="", save_model_path=None, use_lasso=False, save_artifacts=True):
 	print(f"\n{name}")
 	print("Running cross-validation (MAE)...")
-	cv_mae = -cross_val_score(pipeline, X, y, scoring="neg_mean_absolute_error", cv=cv, n_jobs=-1)
+	cv_mae = -cross_val_score(pipeline, X, y, scoring="neg_mean_absolute_error", cv=cv, n_jobs=1)
 	print(f"CV MAE: mean={cv_mae.mean():.2f}, std={cv_mae.std():.2f}")
 
 	pipeline.fit(X_train, y_train)
@@ -237,7 +241,7 @@ def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv
 
 	if save_artifacts:
 		save_plots(y_test, preds, suffix=suffix)
-		save_feature_importances(pipeline, use_svd=use_svd, suffix=suffix)
+		save_feature_importances(pipeline, use_lasso=use_lasso, suffix=suffix)
 
 		if save_model_path:
 			joblib.dump(pipeline, save_model_path)
@@ -252,51 +256,61 @@ def main():
 		sys.exit(1)
 
 	df = pd.read_csv(DATA_FILE)
-	df = prepare_dataframe(df)
+	if USE_PREPROCESSED_LASSO:
+		if "price" not in df.columns:
+			print("Lasso dataset must contain a 'price' column.")
+			sys.exit(1)
+		X = df.drop(columns=["price"])
+		y = df["price"].values
+	else:
+		df = prepare_dataframe(df)
 
-	numeric_features = [
-		"surface_m2",
-		"rooms",
-		"floor",
-		"year_built",
-		"number_bathrooms",
-		"latitude",
-		"longitude",
-		"metro_proximity",
-		"stb_proximity",
-	]
-	categorical_features = ["city", "elevator", "construction_material"]
+		numeric_features = [
+			"surface_m2",
+			"rooms",
+			"floor",
+			"year_built",
+			"number_bathrooms",
+			"latitude",
+			"longitude",
+			"metro_proximity",
+			"stb_proximity",
+		]
+		categorical_features = ["city", "elevator", "construction_material"]
 
-	df = df[df["price_value"].notna()].reset_index(drop=True)
-	if df.shape[0] < 10:
-		print("Not enough rows with price to train.")
-		sys.exit(1)
+		df = df[df["price_value"].notna()].reset_index(drop=True)
+		if df.shape[0] < 10:
+			print("Not enough rows with price to train.")
+			sys.exit(1)
 
-	X = df[[c for c in numeric_features + categorical_features if c in df.columns]].copy()
-	y = df["price_value"].values
+		X = df[[c for c in numeric_features + categorical_features if c in df.columns]].copy()
+		y = df["price_value"].values
 
 	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-	preprocessor = build_preprocessor(
-		[c for c in numeric_features if c in X.columns],
-		[c for c in categorical_features if c in X.columns],
-	)
+	if USE_PREPROCESSED_LASSO:
+		preprocessor = None
+	else:
+		preprocessor = build_preprocessor(
+			[c for c in numeric_features if c in X.columns],
+			[c for c in categorical_features if c in X.columns],
+		)
 
 	cv = KFold(n_splits=5, shuffle=True, random_state=42)
 	sns.set_theme(style="whitegrid")
 
-	if not USE_SVD:
-		print("Enable SVD to run the model")
+	if not USE_LASSO:
+		print("Enable Lasso to run the model")
 		return
 
 	if HYPERPARAM_SEARCH:
 		results = []
 		total = len(HYPERPARAM_GRID)
 		for idx, params in enumerate(HYPERPARAM_GRID, start=1):
-			svd_pipeline = build_model_pipeline(preprocessor, use_svd=True, model_params=params)
+			lasso_pipeline = build_model_pipeline(preprocessor, use_lasso=not USE_PREPROCESSED_LASSO, model_params=params)
 			metrics = evaluate_pipeline(
-				f"SVD search {idx}/{total} params={params}",
-				svd_pipeline,
+				f"Lasso search {idx}/{total} params={params}",
+				lasso_pipeline,
 				X,
 				y,
 				X_train,
@@ -304,9 +318,9 @@ def main():
 				y_train,
 				y_test,
 				cv,
-				suffix=f"svd_search_{idx}",
+				suffix=f"lasso_search_{idx}",
 				save_model_path=None,
-				use_svd=True,
+				use_lasso=not USE_PREPROCESSED_LASSO,
 				save_artifacts=False,
 			)
 			results.append({"params": params, **metrics})
@@ -319,10 +333,10 @@ def main():
 			)
 		return
 
-	svd_pipeline = build_model_pipeline(preprocessor, use_svd=True)
+	lasso_pipeline = build_model_pipeline(preprocessor, use_lasso=not USE_PREPROCESSED_LASSO)
 	metrics = evaluate_pipeline(
-		f"SVD (n_components={SVD_COMPONENTS})",
-		svd_pipeline,
+		"Lasso",
+		lasso_pipeline,
 		X,
 		y,
 		X_train,
@@ -330,13 +344,13 @@ def main():
 		y_train,
 		y_test,
 		cv,
-		suffix="svd",
-		save_model_path=MODEL_SVD_FILE,
-		use_svd=True,
+		suffix="lasso",
+		save_model_path=MODEL_LASSO_FILE,
+		use_lasso=not USE_PREPROCESSED_LASSO,
 	)
 
 	print("\nSummary metrics:")
-	print(f"svd: MAE={metrics['mae']:.2f}, RMSE={metrics['rmse']:.2f}, R2={metrics['r2']:.3f}, RMSLE={metrics['rmsle']:.3f}")
+	print(f"lasso: MAE={metrics['mae']:.2f}, RMSE={metrics['rmse']:.2f}, R2={metrics['r2']:.3f}, RMSLE={metrics['rmsle']:.3f}")
 
 
 if __name__ == "__main__":

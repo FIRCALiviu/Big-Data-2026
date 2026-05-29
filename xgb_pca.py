@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.compose import ColumnTransformer
+from sklearn.compose import ColumnTransformer, TransformedTargetRegressor
 from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
@@ -15,12 +15,13 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import joblib
 from xgboost import XGBRegressor
 BASE_DIR = Path(__file__).resolve().parent
-DATA_FILE = BASE_DIR / "imobiliare_apartments.csv"
+DATA_FILE = BASE_DIR / "Datasets" / "pca_dataset.csv"
 MODEL_FILE = BASE_DIR / "xgb_pipeline.joblib"
 MODEL_PCA_FILE = BASE_DIR / "xgb_pipeline_pca.joblib"
 PLOT_DIR = BASE_DIR
 
 USE_PCA = True
+USE_PREPROCESSED_PCA = True
 PCA_COMPONENTS = 0.95
 
 HYPERPARAM_SEARCH = True
@@ -134,9 +135,15 @@ def build_model_pipeline(preprocessor, use_pca=False, pca_components=0.95, model
     params = {"n_estimators": 200, "learning_rate": 0.1, "max_depth": 6, "random_state": 42, "n_jobs": -1}
     if model_params:
         params.update(model_params)
-    model = XGBRegressor(**params)
+    model = TransformedTargetRegressor(
+        regressor=XGBRegressor(**params),
+        func=np.log1p,
+        inverse_func=np.expm1,
+    )
 
-    steps = [("preprocess", preprocessor)]
+    steps = []
+    if preprocessor is not None:
+        steps.append(("preprocess", preprocessor))
     if use_pca:
         steps.append(("pca", PCA(n_components=pca_components, random_state=42)))
     steps.append(("model", model))
@@ -189,8 +196,12 @@ def save_feature_importances(pipeline, use_pca=False, suffix=""):
         if use_pca:
             n_components = pipeline.named_steps["pca"].n_components_
             feature_names = [f"pc_{i + 1}" for i in range(int(n_components))]
-        else:
+        elif "preprocess" in pipeline.named_steps:
             feature_names = pipeline.named_steps["preprocess"].get_feature_names_out()
+        elif hasattr(pipeline.named_steps["model"], "feature_names_in_"):
+            feature_names = pipeline.named_steps["model"].feature_names_in_.tolist()
+        else:
+            raise AttributeError("No feature names available")
     except Exception:
         feature_names = [f"f_{i}" for i in range(pipeline.named_steps["model"].feature_importances_.shape[0])]
 
@@ -211,7 +222,7 @@ def save_feature_importances(pipeline, use_pca=False, suffix=""):
 def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv, suffix="", save_model_path=None, use_pca=False, save_artifacts=True):
     print(f"\n{name}")
     print("Running cross-validation (MAE)...")
-    cv_mae = -cross_val_score(pipeline, X, y, scoring="neg_mean_absolute_error", cv=cv, n_jobs=-1)
+    cv_mae = -cross_val_score(pipeline, X, y, scoring="neg_mean_absolute_error", cv=cv, n_jobs=1)
     print(f"CV MAE: mean={cv_mae.mean():.2f}, std={cv_mae.std():.2f}")
 
     pipeline.fit(X_train, y_train)
@@ -245,35 +256,45 @@ def main():
         sys.exit(1)
 
     df = pd.read_csv(DATA_FILE)
-    df = prepare_dataframe(df)
+    if USE_PREPROCESSED_PCA:
+        if "price" not in df.columns:
+            print("PCA dataset must contain a 'price' column.")
+            sys.exit(1)
+        X = df.drop(columns=["price"])
+        y = df["price"].values
+    else:
+        df = prepare_dataframe(df)
 
-    # choose features
-    numeric_features = [
-        "surface_m2", "rooms", "floor", "year_built", "number_bathrooms",
-        "latitude", "longitude", "metro_proximity", "stb_proximity"
-    ]
-    categorical_features = ["city", "elevator", "construction_material"]
+        # choose features
+        numeric_features = [
+            "surface_m2", "rooms", "floor", "year_built", "number_bathrooms",
+            "latitude", "longitude", "metro_proximity", "stb_proximity"
+        ]
+        categorical_features = ["city", "elevator", "construction_material"]
 
-    # keep only rows with target
-    df = df[df["price_value"].notna()].reset_index(drop=True)
-    if df.shape[0] < 10:
-        print("Not enough rows with price to train.")
-        sys.exit(1)
+        # keep only rows with target
+        df = df[df["price_value"].notna()].reset_index(drop=True)
+        if df.shape[0] < 10:
+            print("Not enough rows with price to train.")
+            sys.exit(1)
 
-    X = df[[c for c in numeric_features + categorical_features if c in df.columns]].copy()
-    y = df["price_value"].values
+        X = df[[c for c in numeric_features + categorical_features if c in df.columns]].copy()
+        y = df["price_value"].values
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    preprocessor = build_preprocessor(
-        [c for c in numeric_features if c in X.columns],
-        [c for c in categorical_features if c in X.columns],
-    )
+    if USE_PREPROCESSED_PCA:
+        preprocessor = None
+    else:
+        preprocessor = build_preprocessor(
+            [c for c in numeric_features if c in X.columns],
+            [c for c in categorical_features if c in X.columns],
+        )
 
     cv = KFold(n_splits=5, shuffle=True, random_state=42)
     sns.set_theme(style="whitegrid")
 
-    if not USE_PCA:
+    if not USE_PREPROCESSED_PCA and not USE_PCA:
         print("Enable PCA to run the model")
         return
 
@@ -283,7 +304,7 @@ def main():
         for idx, params in enumerate(HYPERPARAM_GRID, start=1):
             pca_pipeline = build_model_pipeline(
                 preprocessor,
-                use_pca=True,
+                use_pca=not USE_PREPROCESSED_PCA,
                 pca_components=PCA_COMPONENTS,
                 model_params=params,
             )
@@ -299,7 +320,7 @@ def main():
                 cv,
                 suffix=f"pca_search_{idx}",
                 save_model_path=None,
-                use_pca=True,
+                use_pca=not USE_PREPROCESSED_PCA,
                 save_artifacts=False,
             )
             results.append({"params": params, **metrics})
@@ -312,7 +333,7 @@ def main():
             )
         return
 
-    pca_pipeline = build_model_pipeline(preprocessor, use_pca=True, pca_components=PCA_COMPONENTS)
+    pca_pipeline = build_model_pipeline(preprocessor, use_pca=not USE_PREPROCESSED_PCA, pca_components=PCA_COMPONENTS)
     metrics = evaluate_pipeline(
         f"PCA (n_components={PCA_COMPONENTS})",
         pca_pipeline,
@@ -325,7 +346,7 @@ def main():
         cv,
         suffix="pca",
         save_model_path=MODEL_PCA_FILE,
-        use_pca=True,
+        use_pca=not USE_PREPROCESSED_PCA,
     )
 
     print("\nSummary metrics:")
