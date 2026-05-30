@@ -7,14 +7,19 @@
 % Set page size and margins
 % Replace `letterpaper' with `a4paper' for UK/EU standard size
 \usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
-
+\usepackage{booktabs} 
 % Useful packages
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{float}
 
 \title{Big Data Housing market analysis}
 \author{You}
+
+
+
+
 
 \begin{document}
 \maketitle
@@ -23,11 +28,30 @@
 
 \section{Introduction}
 The Romanian housing market has experienced dramatic trends in the last 5 years, with residential prices in major urban hubs like Bucharest and Cluj-Napoca surging by over 40\%. In this vibrant and essential market, it is important that we establish AI models that are able to reliably predict the price of real estate, in order to decide if the price of certain offers is too high or too low.
-Unfortunately, we weren't able to find a state of the art model for the Bucharest housing market, since financial data and algorithms tend to be proprietary, however our solution found that \textbf{TODO: eroare}, besides some other interesting patterns found in the data.
+Unfortunately, we weren't able to find a state of the art model for the Bucharest housing market, since financial data and algorithms tend to be proprietary, however consistent with typical data science benchmarks, our evaluation demonstrates that \textbf{XGBoost} yields the highest performance on this dataset. Our solution also found other interesting patterns in the data, such as a 73\% correlation between the price of a unit and the space it has to offer.
 
 \section{Dataset description}
+Our dataset documents the real estate market in Bucharest, specifically for apartments.
+Our dataset contains \textbf{16{,}022} rows and \textbf{12} columns. Each column is:
+\begin{itemize}
+    \bfseries
+    \item Price
+    \item Surface 
+    \item Nr. of rooms
+    \item Floor 
+    \item Max Floor (how many floors the building has)
+    \item Year built
+    \item Neighbourhood (what district it is in Bucharest)
+    \item Elevator (Yes/No)
+    \item Construction Material 
+    \item Nr. of bathrooms
+    \item Latitude 
+    \item Longitude 
+    \item Metro Proximity (Distance to the nearest subway station)
+    \item STB Proximity (Distance to public transit in general)
+\end{itemize}
 
-
+All of the columns have positive values, except for -1, which designated \texttt{N/A}.
 
 \section{Dataset production}
 We have decided to limit our crawling to flats, not houses, that are in Bucharest. This approach allows us to have more homogenous data, facilitating the tasks of our algorithms.
@@ -78,12 +102,10 @@ As there are no limits on the price, surface, and number of rooms, we want to li
 
 By enforcing these constraints, we ensure that each listing in our dataset isn't too outlandish and normalises our data. For example, if the price per square meter would be above 7000 \euro, an apartment of $130 \text{m}^2$ would cost 910000 \euro which is nearly a million. Clearly, for the Bucharest real estate market, this is an flippant. 
 
-Another problem we had was treating \texttt{N/A}s this was established in the following manner : 
+Another problem we had was treating \texttt{N/A}s. We replaced them with -1, as all of our data is positive. Furthermore, we found that on \emph{storia.ro} the number of bathrooms was always 1. This could be due to the fact that there isn't a field specifically designed for the number of bathrooms on the website, and many sellers choose not to put the number of bathrooms in the description.
 
-\textbf{TODO:how did we handle Na}
-\textbf{TODO: what were the final columns}
 
-After performing this clean-up, we were left with \textbf{1622} listings
+After performing this clean-up, we were left with \textbf{1622} listings and \textbf{12} columns.
 
 \begin{figure}
     \centering
@@ -165,7 +187,57 @@ After applying this transform to multiple columns, we deduce as shown in Figure~
 \end{figure}
 
 \section{Implementation details}
-\textbf{TODO: ce library suntt folosite pandas samd, timpul de rulare, hardware folosit}
 
-\section{}
+We used \texttt{sklearn} and \texttt{xgboost} in order to scale, and train our algorithms. 
+Our data clean-up process and EDA was implemented using \texttt{pandas} and \texttt{seaborn}.
+In order to train our algorithms, we used a recent laptop CPU with 8 cores. All algorithms were implemented using parallelisation, so each core was efficiently used. Below are the training times of each algorithm.
+
+
+\begin{table}[htbp]
+\centering
+\caption{Model Execution Times}
+\label{tab:1}
+\begin{tabular}{lr}
+\toprule
+\textbf{Model} & \textbf{Execution Time (s)} \\ 
+\midrule
+XGBoost & 12 \\
+Ridge Regression & 3 \\
+Random Forest & 53 \\
+Linear Regression & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Results}
+As shown in table~\ref{tab:2}, \textbf{XGBoost} was by far the best algorithm for this task. It trained in a relatively short period of time, and its error was by far the best. Anther benefit that this technique has is that it does not require regularisation, and can natively handle \texttt{N/A}s.
+Another interesting pattern is that decision trees based algorithm generally outperformed regression/linear models. We could have also tried using a multi-layer perceptron (MLP), but with only 16{,}000 train instances we found it to be absurd if it outperformed \textbf{XGBoost}.
+As \textbf{XGBoost} has a RMSE of only 35{,}000 and a MAE of only 19{,}300 , it is a surprisingly succesful approach and we find it fit to be production-ready. The only limitations about this approach are that the photos of the apartment are not available to the algorithm. Further research would require giving \textbf{XGBoost} a vector that encodes the images of each listing, further improving accuracy. 
+\textbf{TODO: ANDREI}
+
+Another interesting pattern is that \textbf{Lasso} is better than \textbf{PCA} wich is better than \textbf{UMAP}. We expect that this discrepency is due to the number of dimentions that we set to be reduced: \textbf{Lasso} has 12 dimensions, \textbf{PCA} has 10 dimensions and \textbf{UMAP} has 6 dimensions. This highlights that the final versions of our dataset does not have redundant columns and even if it had \textbf{XGBoost} would handle them with no loss of performance.    
+
+\begin{table}[H]
+\centering
+\caption{RMSE by Dimensionality Reduction Method and Model}
+\vspace{4pt}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Method} & \textbf{Linear} & \textbf{XGBoost} & \textbf{Rand. Forest} & \textbf{Ridge} \\
+\midrule
+Lasso  & 66{,}818  & \textbf{35{,}613*}  & 49{,}533  & 66{,}813  \\
+UMAP   & 110{,}651 & \textbf{56{,}068}  & 65{,}085  & 110{,}630 \\
+PCA    & 68{,}989  & \textbf{50{,}493}  & 60{,}026  & 69{,}049  \\
+\bottomrule
+\end{tabular}
+\label{tab:2}
+\end{table}
+
+
+
+
+
+\section{Conclusion}
+
+
 \end{document}

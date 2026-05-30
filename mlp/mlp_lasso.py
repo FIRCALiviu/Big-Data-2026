@@ -14,18 +14,14 @@ import joblib
 from sklearn.neural_network import MLPRegressor
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_FILE = BASE_DIR.parent / "Datasets" / "lasso_dataset.csv"
+DATA_FILE = BASE_DIR.parent / "Datasets" / "dataset.csv"
 MODEL_FILE = BASE_DIR / "mlp_pipeline_lasso.joblib"
 PLOT_DIR = BASE_DIR
 
 HYPERPARAM_SEARCH = True
 HYPERPARAM_GRID = [
-    {"hidden_layer_sizes": (128, 64), "alpha": 0.0001, "learning_rate_init": 0.001},
-    {"hidden_layer_sizes": (128, 64), "alpha": 0.001, "learning_rate_init": 0.001},
-    {"hidden_layer_sizes": (64, 32), "alpha": 0.0001, "learning_rate_init": 0.001},
-    {"hidden_layer_sizes": (64, 32), "alpha": 0.001, "learning_rate_init": 0.001},
-    {"hidden_layer_sizes": (128, 64, 32), "alpha": 0.0001, "learning_rate_init": 0.0005},
-    {"hidden_layer_sizes": (256, 128), "alpha": 0.0001, "learning_rate_init": 0.0005},
+    {"hidden_layer_sizes": (128, 64), "alpha": 0.0001, "learning_rate_init": 0.1},
+ 
 ]
 APPLY_LOG_TARGET = True
 LOG_FEATURES = ["metro_proximity", "surface_m2"]
