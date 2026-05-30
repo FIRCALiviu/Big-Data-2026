@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.compose import TransformedTargetRegressor
 from sklearn.model_selection import train_test_split, KFold, cross_val_score, GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -23,6 +24,8 @@ HYPERPARAM_GRID = [
     {"fit_intercept": False, "positive": False},
     {"fit_intercept": True, "positive": True},
 ]
+APPLY_LOG_TARGET = True
+LOG_FEATURES = ["metro_proximity", "surface_m2"]
 
 
 def load_data():
@@ -41,8 +44,20 @@ def load_data():
         sys.exit(1)
 
     X = df.drop(columns=["price"]).copy()
+    X = apply_log_features(X)
     y = df["price"].values
     return X, y
+
+
+def apply_log_features(X):
+    X = X.copy()
+    for col in LOG_FEATURES:
+        if col in X.columns:
+            col_vals = X[col]
+            if (col_vals <= -1).any():
+                continue
+            X[col] = np.log1p(col_vals)
+    return X
 
 
 def build_model_pipeline(model_params=None):
@@ -51,6 +66,21 @@ def build_model_pipeline(model_params=None):
         params.update(model_params)
     model = LinearRegression(**params)
     return Pipeline(steps=[("scaler", StandardScaler()), ("model", model)])
+
+
+def build_estimator(model_params=None):
+    pipeline = build_model_pipeline(model_params=model_params)
+    if APPLY_LOG_TARGET:
+        return TransformedTargetRegressor(regressor=pipeline, func=np.log1p, inverse_func=np.expm1)
+    return pipeline
+
+
+def normalize_best_params(best_params):
+    cleaned = {}
+    for k, v in best_params.items():
+        k = k.replace("regressor__model__", "").replace("model__", "").replace("regressor__", "")
+        cleaned[k] = v
+    return cleaned
 
 
 def save_plots(y_true, y_pred, suffix=""):
@@ -93,8 +123,9 @@ def save_plots(y_true, y_pred, suffix=""):
     ]
 
 
-def save_feature_importances(pipeline, feature_names, suffix=""):
-    importances = np.abs(pipeline.named_steps["model"].coef_)
+def save_feature_importances(estimator, feature_names, suffix=""):
+    model = estimator.regressor_.named_steps["model"] if hasattr(estimator, "regressor_") else estimator.named_steps["model"]
+    importances = np.abs(model.coef_)
     fi = pd.DataFrame({"feature": feature_names, "importance": importances})
     fi = fi.sort_values("importance", ascending=False).head(20)
 
@@ -109,14 +140,14 @@ def save_feature_importances(pipeline, feature_names, suffix=""):
     return f"feature_importances{suffix}.png"
 
 
-def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv, feature_names, suffix="", save_model_path=None, save_artifacts=True):
+def evaluate_pipeline(name, estimator, X, y, X_train, X_test, y_train, y_test, cv, feature_names, suffix="", save_model_path=None, save_artifacts=True):
     print(f"\n{name}")
     print("Running cross-validation (MAE)...")
-    cv_mae = -cross_val_score(pipeline, X, y, scoring="neg_mean_absolute_error", cv=cv, n_jobs=-1)
+    cv_mae = -cross_val_score(estimator, X, y, scoring="neg_mean_absolute_error", cv=cv, n_jobs=-1)
     print(f"CV MAE: mean={cv_mae.mean():.2f}, std={cv_mae.std():.2f}")
 
-    pipeline.fit(X_train, y_train)
-    preds = pipeline.predict(X_test)
+    estimator.fit(X_train, y_train)
+    preds = estimator.predict(X_test)
     mae = mean_absolute_error(y_test, preds)
     rmse = np.sqrt(mean_squared_error(y_test, preds))
     r2 = r2_score(y_test, preds)
@@ -131,10 +162,10 @@ def evaluate_pipeline(name, pipeline, X, y, X_train, X_test, y_train, y_test, cv
 
     if save_artifacts:
         save_plots(y_test, preds, suffix=suffix)
-        save_feature_importances(pipeline, feature_names=feature_names, suffix=suffix)
+        save_feature_importances(estimator, feature_names=feature_names, suffix=suffix)
 
         if save_model_path:
-            joblib.dump(pipeline, save_model_path)
+            joblib.dump(estimator, save_model_path)
             print(f"Saved trained pipeline to: {save_model_path}")
 
     return {"mae": mae, "rmse": rmse, "r2": r2, "rmsle": rmsle}
@@ -147,20 +178,21 @@ def main():
     sns.set_theme(style="whitegrid")
 
     if HYPERPARAM_SEARCH:
-        grid_params = [{f"model__{k}": [v] for k, v in params.items()} for params in HYPERPARAM_GRID]
+        prefix = "regressor__model__" if APPLY_LOG_TARGET else "model__"
+        grid_params = [{f"{prefix}{k}": [v] for k, v in params.items()} for params in HYPERPARAM_GRID]
         search = GridSearchCV(
-            build_model_pipeline(),
+            build_estimator(),
             grid_params,
             scoring="neg_mean_absolute_error",
             cv=cv,
             n_jobs=-1,
         )
         search.fit(X, y)
-        best_params = {k.replace("model__", ""): v for k, v in search.best_params_.items()}
+        best_params = normalize_best_params(search.best_params_)
         print(f"Best params: {best_params}")
         print(f"Best CV MAE: {-search.best_score_:.2f}")
 
-        pipeline = build_model_pipeline(model_params=best_params)
+        pipeline = build_estimator(model_params=best_params)
         evaluate_pipeline(
             f"PCA best params={best_params}",
             pipeline,
@@ -178,7 +210,7 @@ def main():
         )
         return
 
-    pipeline = build_model_pipeline()
+    pipeline = build_estimator()
     metrics = evaluate_pipeline(
         "PCA",
         pipeline,
