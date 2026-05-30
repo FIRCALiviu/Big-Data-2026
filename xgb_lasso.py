@@ -17,7 +17,7 @@ import joblib
 from xgboost import XGBRegressor
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_FILE = BASE_DIR / "Datasets" / "lasso_dataset.csv"
+DATA_FILE = BASE_DIR / "Datasets" / "dataset.csv"
 MODEL_LASSO_FILE = BASE_DIR / "xgb_pipeline_lasso.joblib"
 PLOT_DIR = BASE_DIR
 
@@ -26,15 +26,20 @@ USE_PREPROCESSED_LASSO = True
 
 HYPERPARAM_SEARCH = True
 HYPERPARAM_GRID = [
-	{"n_estimators": 200, "learning_rate": 0.1, "max_depth": 6},
-	{"n_estimators": 300, "learning_rate": 0.1, "max_depth": 4},
-	{"n_estimators": 400, "learning_rate": 0.05, "max_depth": 6},
-	{"n_estimators": 150, "learning_rate": 0.1, "max_depth": 8},
-	{"n_estimators": 500, "learning_rate": 0.05, "max_depth": 4},
-	{"n_estimators": 800, "learning_rate": 0.03, "max_depth": 6},
-	{"n_estimators": 300, "learning_rate": 0.2, "max_depth": 3},
-	{"n_estimators": 200, "learning_rate": 0.05, "max_depth": 8},
-	{"n_estimators": 600, "learning_rate": 0.03, "max_depth": 4},
+   
+    {"n_estimators": 400, "learning_rate": 0.05, "max_depth": 6, "subsample": 0.8, "colsample_bytree": 0.8},
+    {"n_estimators": 500, "learning_rate": 0.05, "max_depth": 4, "subsample": 0.9, "colsample_bytree": 0.9},
+    
+    
+    {"n_estimators": 300, "learning_rate": 0.1, "max_depth": 6, "min_child_weight": 3, "gamma": 0.1},
+    {"n_estimators": 600, "learning_rate": 0.03, "max_depth": 5, "min_child_weight": 5, "gamma": 0.2},
+    
+    
+    {"n_estimators": 800, "learning_rate": 0.03, "max_depth": 8, "reg_alpha": 0.1, "reg_lambda": 1.0},
+    {"n_estimators": 1000, "learning_rate": 0.01, "max_depth": 7, "reg_alpha": 0.5, "reg_lambda": 2.0},
+    
+    
+    {"n_estimators": 200, "learning_rate": 0.15, "max_depth": 3, "subsample": 0.7, "colsample_bytree": 0.7, "min_child_weight": 1},
 ]
 
 
@@ -105,7 +110,7 @@ def prepare_dataframe(df):
 	for col in ["city", "elevator", "construction_material"]:
 		if col in df.columns:
 			df[col] = df[col].astype(str).replace({"nan": None, "N/A": None})
-
+			df[col] = df[col].replace({-1: None, "N/A": None})
 	return df
 
 
