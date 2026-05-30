@@ -67,6 +67,19 @@ def get_memory_info():
     return info
 
 
+def get_rss_bytes():
+    if psutil:
+        return psutil.Process(os.getpid()).memory_info().rss
+    usage = resource.getrusage(resource.RUSAGE_SELF)
+    return usage.ru_maxrss * 1024
+
+
+def average_bytes(samples):
+    if not samples:
+        return None
+    return int(sum(samples) / len(samples))
+
+
 def log_environment():
     log("=== Environment ===")
     log(f"Timestamp: {datetime.datetime.now().isoformat(timespec='seconds')}")
@@ -242,12 +255,16 @@ def main():
     global LOG_FILE
     LOG_FILE = init_run_log("mlp_lasso")
     start_time = time.perf_counter()
+    memory_samples = []
+    memory_samples.append(get_rss_bytes())
     log_environment()
     log(f"Data file: {DATA_FILE}")
 
     X, y = load_data()
+    memory_samples.append(get_rss_bytes())
     log(f"Rows: {len(y)}, Features: {X.shape[1]}")
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    memory_samples.append(get_rss_bytes())
     cv = KFold(n_splits=5, shuffle=True, random_state=42)
     sns.set_theme(style="whitegrid")
 
@@ -269,6 +286,7 @@ def main():
             n_jobs=1,
         )
         search.fit(X, y)
+        memory_samples.append(get_rss_bytes())
         best_params = normalize_best_params(search.best_params_)
         log(f"Best params: {best_params}")
         log(f"Best CV MAE: {-search.best_score_:.2f}")
@@ -289,6 +307,11 @@ def main():
             save_model_path=None,
             save_artifacts=False,
         )
+        memory_samples.append(get_rss_bytes())
+        avg_memory = average_bytes(memory_samples)
+        log(f"Elapsed seconds: {time.perf_counter() - start_time:.2f}")
+        log(f"Average RSS bytes: {avg_memory}")
+        log(f"Memory: {get_memory_info()}")
         return
 
     pipeline = build_estimator()
@@ -306,10 +329,13 @@ def main():
         suffix="lasso",
         save_model_path=MODEL_FILE,
     )
+    memory_samples.append(get_rss_bytes())
 
     log("\nSummary metrics:")
     log(f"lasso: MAE={metrics['mae']:.2f}, RMSE={metrics['rmse']:.2f}, R2={metrics['r2']:.3f}, RMSLE={metrics['rmsle']:.3f}")
     log(f"Elapsed seconds: {time.perf_counter() - start_time:.2f}")
+    avg_memory = average_bytes(memory_samples)
+    log(f"Average RSS bytes: {avg_memory}")
     log(f"Memory: {get_memory_info()}")
 
 
