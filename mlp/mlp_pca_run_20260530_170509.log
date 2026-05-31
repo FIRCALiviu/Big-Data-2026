@@ -1,0 +1,30 @@
+=== Environment ===
+Timestamp: 2026-05-30T17:05:09
+Platform: Linux-6.6.114.1-microsoft-standard-WSL2-x86_64-with-glibc2.43
+Python: 3.14.4 (main, Apr  8 2026, 04:02:31) [GCC 15.2.0]
+CPU count: 16
+Memory: {'rss_bytes': 195174400}
+Data file: /home/tudor/Others/Big-Data-2026/Datasets/pca_dataset.csv
+Rows: 16221, Features: 10
+Best params: {'alpha': 0.0001, 'hidden_layer_sizes': (256, 128), 'learning_rate_init': 0.0005}
+Best CV MAE: 27650.17
+
+PCA best params={'alpha': 0.0001, 'hidden_layer_sizes': (256, 128), 'learning_rate_init': 0.0005}
+Running cross-validation (MAE)...
+CV MAE: mean=27650.17, std=932.92
+MAE=28382.12, RMSE=49961.28, R2=0.817, RMSLE=0.208
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000         82258.46   22741.54
+        62900         65317.54    2417.54
+       190250        132600.33   57649.67
+        76033         81100.58    5067.58
+       145000        162013.44   17013.44
+        92500         92887.89     387.89
+        74900         65775.70    9124.30
+       140900        155092.30   14192.30
+       339999        382359.57   42360.57
+       156500        140127.06   16372.94
+Elapsed seconds: 349.82
+Average RSS bytes: 213496627
+Memory: {'rss_bytes': 230821888}

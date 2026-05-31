@@ -1,5 +1,10 @@
 from pathlib import Path
+import datetime
+import os
+import platform
 import sys
+import time
+import resource
 
 import numpy as np
 import pandas as pd
@@ -13,10 +18,17 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import joblib
 from sklearn.neural_network import MLPRegressor
 
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
 BASE_DIR = Path(__file__).resolve().parent
 DATA_FILE = BASE_DIR.parent / "Datasets" / "dataset.csv"
 MODEL_FILE = BASE_DIR / "mlp_pipeline_lasso.joblib"
 PLOT_DIR = BASE_DIR
+
+LOG_FILE = None
 
 HYPERPARAM_SEARCH = True
 HYPERPARAM_GRID = [
@@ -31,19 +43,69 @@ APPLY_LOG_TARGET = True
 LOG_FEATURES = ["metro_proximity", "surface_m2"]
 
 
+def init_run_log(model_name):
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    return PLOT_DIR / f"{model_name}_run_{timestamp}.log"
+
+
+def log(message):
+    print(message)
+    if LOG_FILE:
+        with open(LOG_FILE, "a", encoding="utf-8") as handle:
+            handle.write(f"{message}\n")
+
+
+def get_memory_info():
+    info = {}
+    if psutil:
+        proc = psutil.Process(os.getpid())
+        mem = proc.memory_info()
+        info["rss_bytes"] = mem.rss
+        vm = psutil.virtual_memory()
+        info["system_total_bytes"] = vm.total
+        info["system_available_bytes"] = vm.available
+        return info
+
+    usage = resource.getrusage(resource.RUSAGE_SELF)
+    info["rss_bytes"] = usage.ru_maxrss * 1024
+    return info
+
+
+def get_rss_bytes():
+    if psutil:
+        return psutil.Process(os.getpid()).memory_info().rss
+    usage = resource.getrusage(resource.RUSAGE_SELF)
+    return usage.ru_maxrss * 1024
+
+
+def average_bytes(samples):
+    if not samples:
+        return None
+    return int(sum(samples) / len(samples))
+
+
+def log_environment():
+    log("=== Environment ===")
+    log(f"Timestamp: {datetime.datetime.now().isoformat(timespec='seconds')}")
+    log(f"Platform: {platform.platform()}")
+    log(f"Python: {sys.version.replace(os.linesep, ' ')}")
+    log(f"CPU count: {os.cpu_count()}")
+    log(f"Memory: {get_memory_info()}")
+
+
 def load_data():
     if not DATA_FILE.exists():
-        print(f"Data file not found: {DATA_FILE}")
+        log(f"Data file not found: {DATA_FILE}")
         sys.exit(1)
 
     df = pd.read_csv(DATA_FILE)
     if "price" not in df.columns:
-        print("Missing 'price' column in dataset.")
+        log("Missing 'price' column in dataset.")
         sys.exit(1)
 
     df = df.dropna(subset=["price"]).reset_index(drop=True)
     if df.shape[0] < 10:
-        print("Not enough rows with price to train.")
+        log("Not enough rows with price to train.")
         sys.exit(1)
 
     X = df.drop(columns=["price"]).copy()
@@ -194,8 +256,19 @@ def evaluate_pipeline(name, estimator, X, y, X_train, X_test, y_train, y_test, c
 
 
 def main():
+    global LOG_FILE
+    LOG_FILE = init_run_log("mlp_lasso")
+    start_time = time.perf_counter()
+    memory_samples = []
+    memory_samples.append(get_rss_bytes())
+    log_environment()
+    log(f"Data file: {DATA_FILE}")
+
     X, y = load_data()
+    memory_samples.append(get_rss_bytes())
+    log(f"Rows: {len(y)}, Features: {X.shape[1]}")
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    memory_samples.append(get_rss_bytes())
     cv = KFold(n_splits=5, shuffle=True, random_state=42)
     sns.set_theme(style="whitegrid")
 
@@ -217,9 +290,10 @@ def main():
             n_jobs=1,
         )
         search.fit(X, y)
+        memory_samples.append(get_rss_bytes())
         best_params = normalize_best_params(search.best_params_)
-        print(f"Best params: {best_params}")
-        print(f"Best CV MAE: {-search.best_score_:.2f}")
+        log(f"Best params: {best_params}")
+        log(f"Best CV MAE: {-search.best_score_:.2f}")
 
         pipeline = build_estimator(model_params=best_params)
         evaluate_pipeline(
@@ -237,6 +311,11 @@ def main():
             save_model_path=None,
             save_artifacts=False,
         )
+        memory_samples.append(get_rss_bytes())
+        avg_memory = average_bytes(memory_samples)
+        log(f"Elapsed seconds: {time.perf_counter() - start_time:.2f}")
+        log(f"Average RSS bytes: {avg_memory}")
+        log(f"Memory: {get_memory_info()}")
         return
 
     pipeline = build_estimator()
@@ -254,9 +333,14 @@ def main():
         suffix="lasso",
         save_model_path=MODEL_FILE,
     )
+    memory_samples.append(get_rss_bytes())
 
-    print("\nSummary metrics:")
-    print(f"lasso: MAE={metrics['mae']:.2f}, RMSE={metrics['rmse']:.2f}, R2={metrics['r2']:.3f}, RMSLE={metrics['rmsle']:.3f}")
+    log("\nSummary metrics:")
+    log(f"lasso: MAE={metrics['mae']:.2f}, RMSE={metrics['rmse']:.2f}, R2={metrics['r2']:.3f}, RMSLE={metrics['rmsle']:.3f}")
+    log(f"Elapsed seconds: {time.perf_counter() - start_time:.2f}")
+    avg_memory = average_bytes(memory_samples)
+    log(f"Average RSS bytes: {avg_memory}")
+    log(f"Memory: {get_memory_info()}")
 
 
 if __name__ == "__main__":
