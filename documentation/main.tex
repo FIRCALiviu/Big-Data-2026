@@ -15,7 +15,7 @@
 \usepackage{float}
 
 \title{Big Data Housing market analysis}
-\author{You}
+\author{Firca Liviu Nicolae 411, Alexandru Andrei 411, Tudor Cioc 412, Tîrîlă Patrick Gabriel 411}
 
 
 
@@ -205,39 +205,59 @@ XGBoost & 12 \\
 Ridge Regression & 3 \\
 Random Forest & 53 \\
 Linear Regression & 3 \\
+MLP & 1800 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \section{Results}
 As shown in table~\ref{tab:2}, \textbf{XGBoost} was by far the best algorithm for this task. It trained in a relatively short period of time, and its error was by far the best. Anther benefit that this technique has is that it does not require regularisation, and can natively handle \texttt{N/A}s.
-Another interesting pattern is that decision trees based algorithm generally outperformed regression/linear models. We could have also tried using a multi-layer perceptron (MLP), but with only 16{,}000 train instances we found it to be absurd if it outperformed \textbf{XGBoost}.
+Another interesting pattern is that decision trees based algorithms generally outperformed regression/linear models. The Multilayer perceptron (\textbf{MLP}) performed overall very poorly. Not only did it require more time then all the other techniques, it is only marginally better then a standard random forest. This confirm the principle, that Neural Networks really shine when a lot of data is available, but on smaller datasets traditional data science techniques work better.
 As \textbf{XGBoost} has a RMSE of only 35{,}000 and a MAE of only 19{,}300 , it is a surprisingly succesful approach and we find it fit to be production-ready. The only limitations about this approach are that the photos of the apartment are not available to the algorithm. Further research would require giving \textbf{XGBoost} a vector that encodes the images of each listing, further improving accuracy. 
-\textbf{TODO: ANDREI}
+
 
 Another interesting pattern is that \textbf{Lasso} is better than \textbf{PCA} wich is better than \textbf{UMAP}. We expect that this discrepency is due to the number of dimentions that we set to be reduced: \textbf{Lasso} has 12 dimensions, \textbf{PCA} has 10 dimensions and \textbf{UMAP} has 6 dimensions. This highlights that the final versions of our dataset does not have redundant columns and even if it had \textbf{XGBoost} would handle them with no loss of performance.    
 
+\subsection{Further analysis}
+We analysed the worst predictions of \textbf{XGBoost}, both in overestimating the price of a listing but also in underestimating. We expect that they are related to the state of the apartment, such as how much furniture it has. Some of the listings it had a bad performance genuinely seemed very overpriced. However the majority of them were due to the lack of image encoding. For instance, in Figure~\ref{fig:8}, \textbf{XGBoost} overestimated the value of the unit by 220{,}000 \euro \space, because it wasn't able to see the dubious plumbing job that the house received and also the rotting walls. The housing unit also appears to have broken windows that were lazily replaced with cardboard. In contrast, Figure~\ref{fig:9} shows a housing unit that was underestimated by 380{,}000 \euro. The housing unit is full of luxurious furniture, and the apartment also comes with private security. We didn't have the budget to obtain image encodings of each listings, and besides the big cost it would also take a lot of time. Another approach is to see how much the performance scales when we augment the dataset to contain a lot of data. We had \textbf{16{,}022} listings, and because of that \textbf{XGBoost} performs best, but if we had more then 100{,}000 maybe the \textbf{MLP} would achieve the best performance. 
 \begin{table}[H]
 \centering
 \caption{RMSE by Dimensionality Reduction Method and Model}
 \vspace{4pt}
-\begin{tabular}{lcccc}
+\begin{tabular}{lccccc}
 \toprule
-\textbf{Method} & \textbf{Linear} & \textbf{XGBoost} & \textbf{Rand. Forest} & \textbf{Ridge} \\
+\textbf{Method} & \textbf{Linear} & \textbf{XGBoost} & \textbf{Rand. Forest} & \textbf{Ridge} & \textbf{MLP}\\
 \midrule
-Lasso  & 66{,}818  & \textbf{35{,}613*}  & 49{,}533  & 66{,}813  \\
-UMAP   & 110{,}651 & \textbf{56{,}068}  & 65{,}085  & 110{,}630 \\
-PCA    & 68{,}989  & \textbf{50{,}493}  & 60{,}026  & 69{,}049  \\
+Lasso  & 66{,}818  & \textbf{35{,}613*}  & 49{,}533  & 66{,}813 & 47{,}647  \\
+UMAP   & 110{,}651 & \textbf{56{,}068}  & 65{,}085  & 110{,}630 & 66{,}827 \\
+PCA    & 68{,}989  & \textbf{50{,}493}  & 60{,}026  & 69{,}049 & 49{,}961 \\
 \bottomrule
 \end{tabular}
 \label{tab:2}
 \end{table}
 
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{photo1.png}
+    \caption{A housing unit with moldy walls and bad plumbing.
+    }
+    \label{fig:8}
+\end{figure}
 
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{photo2.png}
+    \caption{A housing unit with very good furniture and architecture.}
+    \label{fig:9}
+\end{figure}
 
 
 
 \section{Conclusion}
-
-
+The Bucharest housing market has a lot of noticeable patterns that impact pricing, such as a 73\% correlation between the space a housing unit has to offer and its price. Recently built housing units are especially expensive, and the only luxurious residential area appears to be Aviatorilor, with more affordable housing on the edge of the city. As shown above, real estate developers love to build near existing transit infrastructure, such as the subway system. \textbf{XGBoost} offers the best performance on the dataset, with a RMSE of approximately 35{,}000 \euro \space which is very good considering it doesn't have acces to a lot of relevant information, such as the pictures.
+\newline
+\subsection{Future approaches}
+A very interesting direction would be to encode the images of the listings using an image encoder, which would allow our algorithm to notice the general state of the unit (i.e. furniture, walls etc.).
+Another interesting remark is that our algorithms only analyse the price of \textbf{listed} apartments, not \textbf{sold} apartments. For example, the price could change multiple times in the future before it gets sold. We addressed these concerns by removing obviously absurd offers, but having a dataset with the actual price the house was sold would make a more accurate case study.
+Another limitation of our approach was that we could have included more fields in our dataset, such as if the house has air conditioning, or if parking is available underneath the structure. Including such information can only increase the accuracy of this approach, but would be tedious and expensive since sellers are not required to make such information available on their post. 
 \end{document}
