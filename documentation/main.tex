@@ -13,9 +13,10 @@
 \usepackage{graphicx}
 \usepackage[colorlinks=true, allcolors=blue]{hyperref}
 \usepackage{float}
-
+\usepackage{url}
+\usepackage{hyperref}
 \title{Big Data Housing market analysis}
-\author{Firca Liviu Nicolae 411, Alexandru Andrei 411, Tudor Cioc 412, Tîrîlă Patrick Gabriel 411}
+\author{Firca Liviu Nicolae 411, Alexandru Andrei 411, Tudor Cioc 412, Tîrîlă Patric Gabriel 411}
 
 
 
@@ -100,7 +101,7 @@ As there are no limits on the price, surface, and number of rooms, we want to li
     \item $ \texttt{stb\_proximity} < 2 \text{km}$
 \end{itemize}
 
-By enforcing these constraints, we ensure that each listing in our dataset isn't too outlandish and normalises our data. For example, if the price per square meter would be above 7000 \euro, an apartment of $130 \text{m}^2$ would cost 910000 \euro which is nearly a million. Clearly, for the Bucharest real estate market, this is an flippant. 
+By enforcing these constraints, we ensure that each listing in our dataset isn't too outlandish and normalises our data. For example, if the price per square meter would be above 7000 \euro, an apartment of $130 \text{m}^2$ would cost 910000 \euro which is nearly a million. In Bucharest, this is typically found only in luxury developments such as BHB Avenue, One Lake Club, and One Mircea Eliade. These projects are located in some of the city's most prestigious areas and offer extensive amenities, including gyms, spas, saunas, indoor swimming pools, and ground-floor restaurants.
 
 Another problem we had was treating \texttt{N/A}s. We replaced them with -1, as all of our data is positive. Furthermore, we found that on \emph{storia.ro} the number of bathrooms was always 1. This could be due to the fact that there isn't a field specifically designed for the number of bathrooms on the website, and many sellers choose not to put the number of bathrooms in the description.
 
@@ -186,6 +187,19 @@ After applying this transform to multiple columns, we deduce as shown in Figure~
     \label{fig:7}
 \end{figure}
 
+\section{Dimensionality Reduction}
+
+To prepare the dataset for various machine learning models and eliminate potentially redundant information, we employed three distinct dimensionality reduction and feature selection techniques: Principal Component Analysis (\textbf{PCA}), Uniform Manifold Approximation and Projection (\textbf{UMAP}), and \textbf{Lasso} Regression. Prior to applying these techniques, a robust preprocessing pipeline was implemented: numerical features were imputed using the median and scaled using \texttt{StandardScaler}, while categorical features were imputed with the most frequent value and encoded using \texttt{OneHotEncoder}.
+
+\subsection{Principal Component Analysis (PCA)}
+For PCA, we wanted to retain the most significant variance of the dataset while reducing the feature space. We configured the PCA algorithm to capture 95\% of the variance. This linear transformation projected the high-dimensional preprocessed data into a smaller set of uncorrelated variables (10 principal components).
+
+\subsection{Uniform Manifold Approximation and Projection (UMAP)}
+To capture potential non-linear relationships in our data, we utilised UMAP. Unlike PCA, which focuses on global variance, UMAP attempts to preserve both the local and global topological structure of the data. We constrained the algorithm to reduce the feature space to exactly 6 dimensions. 
+
+\subsection{Lasso Feature Selection}
+Rather than projecting the data into a new mathematical space like PCA and UMAP, Lasso (Least Absolute Shrinkage and Selection Operator) was used for explicit feature selection via $L_1$ regularization. We used a 5-fold cross-validation approach (\texttt{LassoCV}) evaluating 50 penalty values ($\alpha$) distributed logarithmically between $10^{-2}$ and $10^4$. The optimal $\alpha$ was identified by minimizing MSE. Features whose coefficients shrank to exactly zero were discarded, while the remaining non-zero features (12 original dimensions) were retained. 
+
 \section{Implementation details}
 
 We used \texttt{sklearn} and \texttt{xgboost} in order to scale, and train our algorithms. 
@@ -260,4 +274,9 @@ The Bucharest housing market has a lot of noticeable patterns that impact pricin
 A very interesting direction would be to encode the images of the listings using an image encoder, which would allow our algorithm to notice the general state of the unit (i.e. furniture, walls etc.).
 Another interesting remark is that our algorithms only analyse the price of \textbf{listed} apartments, not \textbf{sold} apartments. For example, the price could change multiple times in the future before it gets sold. We addressed these concerns by removing obviously absurd offers, but having a dataset with the actual price the house was sold would make a more accurate case study.
 Another limitation of our approach was that we could have included more fields in our dataset, such as if the house has air conditioning, or if parking is available underneath the structure. Including such information can only increase the accuracy of this approach, but would be tedious and expensive since sellers are not required to make such information available on their post. 
+\nocite{*}
+\bibliographystyle{plain}
+\bibliography{references}
+\bibliographystyle{plain}
+
 \end{document}
