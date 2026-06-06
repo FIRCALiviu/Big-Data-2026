@@ -256,6 +256,27 @@ PCA    & 68{,}989  & \textbf{50{,}493}  & 60{,}026  & 69{,}049 & 49{,}961 \\
 
 
 
+\begin{table}[H]
+\centering
+\caption{MAE by Dimensionality Reduction Method and Model}
+\vspace{4pt}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Method} & \textbf{Linear} & \textbf{XGBoost} & \textbf{Rand. Forest} & \textbf{Ridge} & \textbf{MLP}\\
+\midrule
+
+\textbf Baseline & 40{,}232 & \textbf{19{,}153} & 28{,}868 & 40{,}231 & 27,532 \\
+
+Lasso  & 40{,}208  & \textbf{19{,}299*}  & 28{,}832  & 40{,}206 & 28{,}941  \\
+UMAP   & 64{,}981 & \textbf{32{,}943}  & 37{,}743  & 64{,}959 & 39{,}546 \\
+PCA    & 41{,}434  & \textbf{28{,}126}  & 35{,}358  & 41{,}434 & 28{,}382 \\
+\bottomrule
+\end{tabular}
+\label{tab:3}
+\end{table}
+
+
+
 
 \begin{figure}
     \centering
@@ -284,6 +305,5 @@ Another limitation of our approach was that we could have included more fields i
 \nocite{*}
 \bibliographystyle{plain}
 \bibliography{references}
-\bibliographystyle{plain}
 
 \end{document}
