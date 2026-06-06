@@ -1,0 +1,128 @@
+
+PCA search 1/7 params={'n_estimators': 400, 'learning_rate': 0.05, 'max_depth': 6, 'subsample': 0.8, 'colsample_bytree': 0.8}
+Running cross-validation (MAE)...
+CV MAE: mean=28060.69, std=731.79
+MAE=28798.76, RMSE=50719.70, R2=0.811, RMSLE=0.210
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000    104570.843750     429.16
+        62900     51938.601562   10961.40
+       190250    130231.890625   60018.11
+        76033     84522.093750    8489.09
+       145000    114821.320312   30178.68
+        92500     92799.796875     299.80
+        74900     59450.160156   15449.84
+       140900    125240.000000   15660.00
+       339999    337477.625000    2521.34
+       156500    148491.390625    8008.61
+
+PCA search 2/7 params={'n_estimators': 500, 'learning_rate': 0.05, 'max_depth': 4, 'subsample': 0.9, 'colsample_bytree': 0.9}
+Running cross-validation (MAE)...
+CV MAE: mean=29810.37, std=734.53
+MAE=30382.15, RMSE=52980.41, R2=0.794, RMSLE=0.221
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000    106359.718750    1359.72
+        62900     49299.140625   13600.86
+       190250    125145.906250   65104.09
+        76033     80903.171875    4870.17
+       145000    103372.453125   41627.55
+        92500     93845.273438    1345.27
+        74900     63362.398438   11537.61
+       140900    123409.023438   17490.98
+       339999    312046.687500   27952.31
+       156500    152733.250000    3766.75
+
+PCA search 3/7 params={'n_estimators': 300, 'learning_rate': 0.1, 'max_depth': 6, 'min_child_weight': 3, 'gamma': 0.1}
+Running cross-validation (MAE)...
+CV MAE: mean=29893.53, std=985.10
+MAE=30583.60, RMSE=53966.98, R2=0.786, RMSLE=0.222
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000    109204.679688    4204.68
+        62900     55247.238281    7652.75
+       190250    120607.148438   69642.85
+        76033     83234.851562    7201.85
+       145000    129710.921875   15289.08
+        92500     97240.406250    4740.41
+        74900     57817.121094   17082.89
+       140900    121332.570312   19567.43
+       339999    284542.781250   55456.22
+       156500    134671.500000   21828.50
+
+PCA search 4/7 params={'n_estimators': 600, 'learning_rate': 0.03, 'max_depth': 5, 'min_child_weight': 5, 'gamma': 0.2}
+Running cross-validation (MAE)...
+CV MAE: mean=31067.10, std=978.65
+MAE=31883.96, RMSE=55337.34, R2=0.775, RMSLE=0.230
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000    105795.429688     795.43
+        62900     53711.000000    9189.00
+       190250    117769.898438   72480.10
+        76033     81447.640625    5414.63
+       145000    126910.046875   18089.95
+        92500     98882.773438    6382.77
+        74900     59453.160156   15446.84
+       140900    124831.703125   16068.30
+       339999    279327.562500   60671.44
+       156500    142325.921875   14174.08
+
+PCA search 5/7 params={'n_estimators': 800, 'learning_rate': 0.03, 'max_depth': 8, 'reg_alpha': 0.1, 'reg_lambda': 1.0}
+Running cross-validation (MAE)...
+CV MAE: mean=27210.62, std=826.27
+MAE=28126.86, RMSE=50493.96, R2=0.813, RMSLE=0.207
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000    111512.562500    6512.56
+        62900     54055.710938    8844.29
+       190250    135513.703125   54736.30
+        76033     84417.281250    8384.28
+       145000    135115.843750    9884.16
+        92500     96557.687500    4057.69
+        74900     65947.976562    8952.02
+       140900    114754.429688   26145.57
+       339999    320763.031250   19235.97
+       156500    147811.921875    8688.08
+
+PCA search 6/7 params={'n_estimators': 1000, 'learning_rate': 0.01, 'max_depth': 7, 'reg_alpha': 0.5, 'reg_lambda': 2.0}
+Running cross-validation (MAE)...
+CV MAE: mean=28785.85, std=813.66
+MAE=29476.48, RMSE=52440.58, R2=0.798, RMSLE=0.214
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000    113788.343750    8788.34
+        62900     54169.140625    8730.86
+       190250    125363.562500   64886.44
+        76033     83770.320312    7737.32
+       145000    140525.218750    4474.78
+        92500     97081.960938    4581.96
+        74900     66304.296875    8595.70
+       140900    122987.343750   17912.66
+       339999    299466.218750   40532.78
+       156500    140134.312500   16365.69
+
+PCA search 7/7 params={'n_estimators': 200, 'learning_rate': 0.15, 'max_depth': 3, 'subsample': 0.7, 'colsample_bytree': 0.7, 'min_child_weight': 1}
+Running cross-validation (MAE)...
+CV MAE: mean=31015.22, std=982.25
+MAE=32198.95, RMSE=55386.35, R2=0.775, RMSLE=0.231
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000     99494.507812    5505.49
+        62900     50211.738281   12688.25
+       190250    129360.578125   60889.42
+        76033     81911.898438    5878.90
+       145000    102776.460938   42223.54
+        92500     96443.476562    3943.48
+        74900     63272.960938   11627.04
+       140900    114813.656250   26086.34
+       339999    293314.062500   46684.94
+       156500    150582.593750    5917.41
+
+Search summary (sorted by MAE):
+MAE=28126.86, RMSE=50493.96, R2=0.813, RMSLE=0.207 | params={'n_estimators': 800, 'learning_rate': 0.03, 'max_depth': 8, 'reg_alpha': 0.1, 'reg_lambda': 1.0}
+MAE=28798.76, RMSE=50719.70, R2=0.811, RMSLE=0.210 | params={'n_estimators': 400, 'learning_rate': 0.05, 'max_depth': 6, 'subsample': 0.8, 'colsample_bytree': 0.8}
+MAE=29476.48, RMSE=52440.58, R2=0.798, RMSLE=0.214 | params={'n_estimators': 1000, 'learning_rate': 0.01, 'max_depth': 7, 'reg_alpha': 0.5, 'reg_lambda': 2.0}
+MAE=30382.15, RMSE=52980.41, R2=0.794, RMSLE=0.221 | params={'n_estimators': 500, 'learning_rate': 0.05, 'max_depth': 4, 'subsample': 0.9, 'colsample_bytree': 0.9}
+MAE=30583.60, RMSE=53966.98, R2=0.786, RMSLE=0.222 | params={'n_estimators': 300, 'learning_rate': 0.1, 'max_depth': 6, 'min_child_weight': 3, 'gamma': 0.1}
+MAE=31883.96, RMSE=55337.34, R2=0.775, RMSLE=0.230 | params={'n_estimators': 600, 'learning_rate': 0.03, 'max_depth': 5, 'min_child_weight': 5, 'gamma': 0.2}
+MAE=32198.95, RMSE=55386.35, R2=0.775, RMSLE=0.231 | params={'n_estimators': 200, 'learning_rate': 0.15, 'max_depth': 3, 'subsample': 0.7, 'colsample_bytree': 0.7, 'min_child_weight': 1}
