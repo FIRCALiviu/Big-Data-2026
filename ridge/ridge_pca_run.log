@@ -1,0 +1,19 @@
+Best params: {'alpha': 50.0}
+Best CV MAE: 40535.19
+
+PCA best params={'alpha': 50.0}
+Running cross-validation (MAE)...
+CV MAE: mean=40535.19, std=881.37
+MAE=41434.56, RMSE=69049.24, R2=0.650, RMSLE=0.294
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000        111347.39    6347.39
+        62900         72815.92    9915.92
+       190250        115670.08   74579.92
+        76033         92807.35   16774.35
+       145000        103751.06   41248.94
+        92500         97201.37    4701.37
+        74900         63006.50   11893.50
+       140900        116259.56   24640.44
+       339999        232835.66  107163.34
+       156500        144599.08   11900.92

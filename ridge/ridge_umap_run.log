@@ -1,0 +1,19 @@
+Best params: {'alpha': 50.0}
+Best CV MAE: 62939.51
+
+UMAP best params={'alpha': 50.0}
+Running cross-validation (MAE)...
+CV MAE: mean=62939.51, std=1481.26
+MAE=64959.92, RMSE=110630.08, R2=0.100, RMSLE=0.470
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000        103411.82    1588.18
+        62900        142711.42   79811.42
+       190250        110396.84   79853.16
+        76033        133391.07   57358.07
+       145000        163758.90   18758.90
+        92500         93251.70     751.70
+        74900        104017.30   29117.30
+       140900        126878.44   14021.56
+       339999        187415.02  152583.98
+       156500        171825.10   15325.10

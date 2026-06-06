@@ -1,0 +1,19 @@
+Best params: {'alpha': 50.0}
+Best CV MAE: 39600.01
+
+LASSO best params={'alpha': 50.0}
+Running cross-validation (MAE)...
+CV MAE: mean=39600.01, std=872.97
+MAE=40206.67, RMSE=66813.51, R2=0.672, RMSLE=0.284
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000        109275.77    4275.77
+        62900         77410.94   14510.94
+       190250        121443.31   68806.69
+        76033         88363.91   12330.91
+       145000        105346.46   39653.54
+        92500         98639.42    6139.42
+        74900         66924.37    7975.63
+       140900        112597.15   28302.85
+       339999        247332.94   92666.06
+       156500        128896.52   27603.48
