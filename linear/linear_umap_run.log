@@ -1,0 +1,19 @@
+Best params: {'fit_intercept': True, 'positive': False}
+Best CV MAE: 62955.98
+
+UMAP best params={'fit_intercept': True, 'positive': False}
+Running cross-validation (MAE)...
+CV MAE: mean=62955.98, std=1478.17
+MAE=64981.00, RMSE=110651.69, R2=0.100, RMSLE=0.470
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000        103304.00    1696.00
+        62900        142683.53   79783.53
+       190250        110314.03   79935.97
+        76033        133367.57   57334.57
+       145000        163766.22   18766.22
+        92500         93094.88     594.88
+        74900        103912.24   29012.24
+       140900        126859.65   14040.35
+       339999        187718.89  152280.11
+       156500        172065.43   15565.43
