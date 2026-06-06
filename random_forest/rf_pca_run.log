@@ -1,0 +1,19 @@
+Best params: {'max_depth': 8, 'min_samples_split': 5, 'n_estimators': 200}
+Best CV MAE: 34240.56
+
+PCA best params={'max_depth': 8, 'min_samples_split': 5, 'n_estimators': 200}
+Running cross-validation (MAE)...
+CV MAE: mean=34240.56, std=1201.46
+MAE=35358.46, RMSE=60027.63, R2=0.735, RMSLE=0.255
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000        112065.81    7065.81
+        62900         60702.35    2197.65
+       190250        126064.16   64185.84
+        76033         83529.50    7496.50
+       145000        128084.35   16915.65
+        92500         98259.17    5759.17
+        74900         65272.69    9627.31
+       140900        109683.76   31216.24
+       339999        264471.01   75527.99
+       156500        138170.50   18329.50

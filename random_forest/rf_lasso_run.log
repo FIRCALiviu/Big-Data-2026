@@ -1,0 +1,19 @@
+Best params: {'max_depth': 8, 'min_samples_split': 2, 'n_estimators': 150}
+Best CV MAE: 27448.44
+
+LASSO best params={'max_depth': 8, 'min_samples_split': 2, 'n_estimators': 150}
+Running cross-validation (MAE)...
+CV MAE: mean=27448.44, std=779.31
+MAE=28832.72, RMSE=49533.98, R2=0.820, RMSLE=0.207
+Sample predictions vs actual:
+ actual_price  predicted_price  abs_error
+       105000        106998.64    1998.64
+        62900         73943.57   11043.57
+       190250        103204.68   87045.32
+        76033         80915.16    4882.16
+       145000        123642.73   21357.27
+        92500        102811.38   10311.38
+        74900         71542.13    3357.87
+       140900        107116.14   33783.86
+       339999        316887.56   23111.44
+       156500        137256.45   19243.55
